@@ -1,0 +1,76 @@
+# ExpboostQwQ 配置文件
+# 作者: LittleSheep
+
+# 插件设置
+settings:
+  # 是否在经验获取时显示加成信息
+  show_exp_boost_message: true
+  
+  # 全局静默模式（不发送任何消息提示）
+  silent_mode: false
+  
+  # 是否启用调试模式
+  debug_mode: false
+  
+  # 是否记录经验加成日志
+  log_exp_boost: true
+  
+  # 是否启用bStats统计
+  enable_bstats: true
+  
+  # 默认语言设置 (zh_CN: 简体中文, en_US: 英文)
+  default_language: "zh_CN"
+  
+  # 日志设置
+  logs:
+    # 是否启用自动删除
+    auto_delete: true
+    
+    # 保留日志天数（超过这个天数的日志会被删除）
+    keep_days: 30
+    
+    # 检查间隔（分钟）
+    check_interval: 60
+    
+    # 是否在启动时检查
+    check_on_startup: true
+    
+    # 日志记录设置
+    record:
+      # 是否记录玩家经验获得
+      exp_gain: true
+      
+      # 是否记录倍率变化
+      multiplier_change: true
+      
+      # 是否记录命令执行
+      command_execution: true
+      
+      # 是否记录错误信息
+      errors: true
+
+# 默认经验倍率设置
+multipliers:
+  # 全局默认倍率，应用于所有玩家和等级组
+  global_default: 1.0
+  
+  # 等级组特定倍率，优先级高于全局默认倍率
+  # 格式: 等级组名: 倍率
+  level_groups:
+    default: 1.0
+    # 可以添加更多等级组配置
+    # pvp: 1.5
+    # mining: 2.0
+
+# 玩家语言设置
+# 格式: UUID: 语言代码
+player_languages:
+  # 示例: 
+  # "00000000-0000-0000-0000-000000000000": "en_US"
+
+# 语言设置
+language:
+  # 默认语言
+  default: "zh_CN"
+  # 是否允许玩家自定义语言
+  allow_custom: true 

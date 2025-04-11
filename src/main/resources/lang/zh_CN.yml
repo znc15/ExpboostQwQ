@@ -1,0 +1,109 @@
+language:
+  name: "简体中文"
+  code: "zh_CN"
+  version: 1.0
+  author: "LittleSheep"
+
+messages:
+  # 插件启动和禁用消息
+  plugin:
+    enabled: "§a[ExpboostQwQ] 插件已启用！默认语言：%language%"
+    disabled: "§c[ExpboostQwQ] 插件已禁用！"
+    reload: "§a[ExpboostQwQ] 插件配置已重载！"
+  
+  # 经验加成相关消息
+  exp_boost:
+    # 加成应用时的消息
+    exp_boosted: "§a[ExpboostQwQ] §f获得经验 §e%original% §f→ §e%boosted% §7(×%multiplier%)"
+    
+    # 玩家加成设置消息
+    player_booster_set: "§a[ExpboostQwQ] 已为玩家 §e%player% §a设置 §e%multiplier%x §a经验加成，持续时间: §e%duration%"
+    player_booster_received: "§a[ExpboostQwQ] 你获得了 §e%multiplier%x §a经验加成，持续时间: §e%duration%"
+    player_booster_removed: "§c[ExpboostQwQ] 玩家 §e%player% §c的经验加成已移除"
+    
+    # 全服加成设置消息
+    server_booster_set: "§a[ExpboostQwQ] 已为全服设置 §e%multiplier%x §a经验加成，持续时间: §e%duration%"
+    server_booster_broadcast: "§a[ExpboostQwQ] 全服获得了 §e%multiplier%x §a经验加成，持续时间: §e%duration%"
+    server_booster_removed: "§c[ExpboostQwQ] 全服经验加成已移除"
+    
+    # 默认倍率设置消息
+    global_multiplier_set: "§a[ExpboostQwQ] 全局默认经验倍率已设置为 §e%multiplier%x"
+    group_multiplier_set: "§a[ExpboostQwQ] 等级组 §e%group% §a的经验倍率已设置为 §e%multiplier%x"
+  
+  # 检查加成状态消息
+  check:
+    # 玩家加成状态
+    player_no_booster: "§c[ExpboostQwQ] 玩家 §e%player% §c当前没有活跃的经验加成"
+    player_booster_info: "§a[ExpboostQwQ] 玩家 §e%player% §a的经验加成信息:"
+    
+    # 全服加成状态
+    server_no_booster: "§c[ExpboostQwQ] 服务器当前没有活跃的经验加成"
+    server_booster_info: "§a[ExpboostQwQ] 服务器经验加成信息:"
+    
+    # 默认倍率状态
+    global_multiplier_info: "§a[ExpboostQwQ] 全局默认经验倍率: §e%multiplier%x"
+    group_multipliers_info: "§a[ExpboostQwQ] 等级组经验倍率信息:"
+    no_group_multipliers: "§7- §f没有特定等级组倍率设置"
+    
+    # 加成信息详情
+    booster_detail_multiplier: "§7- §f倍率: §e%multiplier%x"
+    booster_detail_duration: "§7- §f剩余时间: §e%duration%"
+    booster_detail_level_group: "§7- §f等级组限制: §e%level_group%"
+    booster_detail_source: "§7- §f来源限制: §e%source%"
+    group_multiplier_detail: "§7- §f%group%: §e%multiplier%x"
+
+  # 命令相关消息
+  command:
+    no_permission: "§c[ExpboostQwQ] 你没有权限执行此命令!"
+    player_not_found: "§c[ExpboostQwQ] 找不到玩家: %player%"
+    invalid_number: "§c[ExpboostQwQ] 倍率必须是有效的数字!"
+    invalid_multiplier: "§c[ExpboostQwQ] 倍率必须大于0!"
+    invalid_duration: "§c[ExpboostQwQ] 无效的时间格式! 使用例如 1d12h30m 或 'permanent'"
+    invalid_level_group: "§c[ExpboostQwQ] 警告: 等级组 '%group%' 不存在，将应用于所有等级组"
+    level_group_not_exists: "§c[ExpboostQwQ] 错误: 等级组 '%group%' 不存在"
+    available_level_groups: "§c[ExpboostQwQ] 可用的等级组: %groups%"
+    unknown_check_type: "§c[ExpboostQwQ] 未知的检查类型，可用选项: player, server, global, groups"
+    groups_title: "§a[ExpboostQwQ] 可用的等级组列表和倍率设置:"
+    no_groups_found: "§c[ExpboostQwQ] 没有找到任何等级组"
+    console_specify_player: "§c[ExpboostQwQ] 控制台必须指定玩家名: /expbooster check player <玩家名>"
+    
+    # 语言相关命令
+    language_set: "§a[ExpboostQwQ] 你的语言已设置为: §e%language%"
+    language_set_other: "§a[ExpboostQwQ] 已将玩家 §e%player% §a的语言设置为: §e%language%"
+    language_not_found: "§c[ExpboostQwQ] 找不到语言: %language%"
+    available_languages: "§a[ExpboostQwQ] 可用的语言: %languages%"
+    language_current: "§a[ExpboostQwQ] 当前语言: §e%language%"
+    server_language_set: "§a[ExpboostQwQ] 服务器默认语言已设置为: §e%language%"
+
+  # 帮助信息
+  help:
+    header: "§6======= §eExpboostQwQ 帮助 §6======="
+    help: "§e/expbooster help §7- §f显示此帮助信息"
+    player: "§e/expbooster player <玩家名> <倍率> <时长> [选项] §7- §f设置玩家经验加成"
+    player_options: "§7  选项: §f-levelGroup=<组名> -source=<来源> -silent"
+    server: "§e/expbooster server <倍率> <时长> [选项] §7- §f设置全服经验加成"
+    server_options: "§7  选项: §f-levelGroup=<组名> -source=<来源> -silent"
+    check_player: "§e/expbooster check player [玩家名] §7- §f检查玩家经验加成状态"
+    check_server: "§e/expbooster check server §7- §f检查全服经验加成状态"
+    check_global: "§e/expbooster check global §7- §f检查全局默认倍率"
+    check_groups: "§e/expbooster check groups §7- §f检查所有等级组倍率"
+    global: "§e/expbooster global <倍率> <时长> [选项] §7- §f设置全局默认倍率"
+    group: "§e/expbooster group <等级组> <倍率> <时长> [选项] §7- §f设置等级组倍率"
+    groups: "§e/expbooster groups §7- §f列出所有等级组及倍率"
+    reload: "§e/expbooster reload §7- §f重载插件配置"
+    language: "§e/expbooster language [语言代码] §7- §f设置或查看你的语言"
+    language_player: "§e/expbooster language player <玩家名> <语言代码> §7- §f设置玩家的语言"
+    language_server: "§e/expbooster language server <语言代码> §7- §f设置服务器默认语言"
+    language_list: "§e/expbooster language list §7- §f列出所有可用的语言"
+    footer: "§6==========================="
+
+  # 用法提示
+  usage:
+    player: "§c[ExpboostQwQ] 用法: /expbooster player <玩家名> <倍率> <时长> [选项]"
+    server: "§c[ExpboostQwQ] 用法: /expbooster server <倍率> <时长> [选项]"
+    check: "§c[ExpboostQwQ] 用法: /expbooster check <player/server/global/groups> [玩家名]"
+    global: "§c[ExpboostQwQ] 用法: /expbooster global <倍率> <时长> [选项]"
+    group: "§c[ExpboostQwQ] 用法: /expbooster group <等级组> <倍率> <时长> [选项]"
+    language: "§c[ExpboostQwQ] 用法: /expbooster language [语言代码]"
+    language_player: "§c[ExpboostQwQ] 用法: /expbooster language player <玩家名> <语言代码>"
+    language_server: "§c[ExpboostQwQ] 用法: /expbooster language server <语言代码>" 
