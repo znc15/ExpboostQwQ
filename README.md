@@ -213,18 +213,16 @@ language:
 如果您在使用过程中遇到任何问题，或有好的建议，欢迎通过以下方式反馈：
 
 1. 在GitHub上提交Issue
-2. 加入我们的交流群：[点击加入](https://jq.qq.com/?_wv=1027&k=xxxxx)
+2. 加入我们的交流群：[点击加入](https://qm.qq.com/q/fqjuNAOZMY)
 3. 发送邮件至：support@example.com
 
 ## 赞助支持
 
 如果您觉得这个插件对您有帮助，欢迎赞助支持我们的开发工作！
 
-- 爱发电：[点击赞助](https://afdian.net/xxxxx)
-- PayPal：[点击赞助](https://paypal.me/xxxxx)
+- 爱发电：[点击赞助](https://afdian.com/a/YangXiaoMian)
 
 所有赞助者都将获得：
-- 专属标识
 - 优先技术支持
 - 新功能建议优先采纳
 - 提前体验新版本
