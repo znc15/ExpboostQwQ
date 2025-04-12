@@ -1,35 +1,64 @@
-name: Build
+name: Build PayToFly
 
 on:
   push:
-    branches: [ "master" ]
+    branches: 
+      - main
+      - master
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+      - '.gitignore'
   pull_request:
-    branches: [ "master" ]
+    branches: 
+      - main
+      - master
+  workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
+    
     steps:
     - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
     
-    - name: Set up JDK 8
+    - name: Set up JDK 17
       uses: actions/setup-java@v3
       with:
-        java-version: '8'
+        java-version: '17'
         distribution: 'temurin'
-        
-    - name: Setup Gradle
-      uses: gradle/gradle-build-action@v2
+        cache: maven
     
-    - name: Execute Gradle build
-      run: ./gradlew build
-      
-    - name: Upload build artifacts
-      uses: actions/upload-artifact@v2
+    - name: Build with Maven
+      run: mvn -B package --file pom.xml
+    
+    - name: List target directory
+      run: ls -la target/
+    
+    - name: Generate build number
+      id: buildnumber
+      run: |
+        echo "build_number=$(date +'%Y%m%d')-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        echo "build_date=$(date +'%Y-%m-%d %H:%M:%S')" >> $GITHUB_OUTPUT
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
       with:
-        name: Package
-        path: build/libs 
+        tag_name: build-${{ steps.buildnumber.outputs.build_number }}
+        name: Build ${{ steps.buildnumber.outputs.build_number }}
+        body: |
+          构建版本 ${{ steps.buildnumber.outputs.build_number }}
+          构建时间：${{ steps.buildnumber.outputs.build_date }}
+          
+          触发提交：${{ github.sha }}
+        files: |
+          target/*.jar
+        prerelease: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
