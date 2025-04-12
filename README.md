@@ -46,32 +46,75 @@
 ## 配置文件
 
 ```yaml
+# ExpboostQwQ 配置文件
+# 作者: LittleSheep
+
 # 插件设置
 settings:
-  # 是否启用调试日志
-  debug: false
-  # 是否记录经验加成操作
+  # 是否在经验获取时显示加成信息
+  show_exp_boost_message: true
+
+  # 全局静默模式（不发送任何消息提示）
+  silent_mode: false
+
+  # 是否启用调试模式
+  debug_mode: false
+
+  # 是否记录经验加成日志
   log_exp_boost: true
+
   # 是否启用bStats统计
   enable_bstats: true
+
+  # 默认语言设置 (zh_CN: 简体中文, en_US: 英文)
+  default_language: "zh_CN"
+
   # 日志设置
   logs:
     # 是否启用自动删除
     auto_delete: true
+
     # 保留日志天数（超过这个天数的日志会被删除）
     keep_days: 30
+
     # 检查间隔（分钟）
     check_interval: 60
+
     # 是否在启动时检查
     check_on_startup: true
 
-# 默认倍率设置
+    # 日志记录设置
+    record:
+      # 是否记录玩家经验获得
+      exp_gain: true
+
+      # 是否记录倍率变化
+      multiplier_change: true
+
+      # 是否记录命令执行
+      command_execution: true
+
+      # 是否记录错误信息
+      errors: true
+
+# 默认经验倍率设置
 multipliers:
-  # 全局默认倍率
+  # 全局默认倍率，应用于所有玩家和等级组
   global_default: 1.0
-  # 等级组特定倍率
+
+  # 等级组特定倍率，优先级高于全局默认倍率
+  # 格式: 等级组名: 倍率
   level_groups:
-    # 示例: mining: 1.5
+    default: 1.0
+    # 可以添加更多等级组配置
+    # pvp: 1.5
+    # mining: 2.0
+
+# 玩家语言设置
+# 格式: UUID: 语言代码
+player_languages:
+# 示例: 
+# "00000000-0000-0000-0000-000000000000": "en_US"
 
 # 语言设置
 language:
@@ -134,4 +177,61 @@ language:
 ./gradlew shadowJar
 ```
 
-构建后的插件文件将位于 `build/libs` 目录下。 
+构建后的插件文件将位于 `build/libs` 目录下。
+
+## 插件使用统计
+
+![bStats 服务器数量](https://bstats.org/signatures/bukkit/ExpboostQwQ.svg)
+
+您可以在[这里](https://bstats.org/plugin/bukkit/ExpboostQwQ/25432)查看更详细的统计信息。
+
+## 未来规划
+
+以下是插件的未来开发计划：
+
+### 近期计划 (v1.1.0)
+- [ ] 添加GUI界面支持，使操作更加直观
+- [ ] 支持MySQL数据库存储
+- [ ] 添加更多经验来源的细分控制
+- [ ] 优化性能，减少内存占用
+
+### 中期计划 (v1.2.0)
+- [ ] 添加经验加成活动系统
+- [ ] 支持更多变量和条件判断
+- [ ] 添加经验加成道具系统
+- [ ] 支持Redis缓存
+
+### 长期计划 (v2.0.0)
+- [ ] 重构代码架构，提升扩展性
+- [ ] 添加API支持，方便其他插件集成
+- [ ] 支持更多服务端版本
+- [ ] 添加网页管理界面
+- [ ] 支持更多数据统计和分析功能
+
+## 问题反馈
+
+如果您在使用过程中遇到任何问题，或有好的建议，欢迎通过以下方式反馈：
+
+1. 在GitHub上提交Issue
+2. 加入我们的交流群：[点击加入](https://jq.qq.com/?_wv=1027&k=xxxxx)
+3. 发送邮件至：support@example.com
+
+## 赞助支持
+
+如果您觉得这个插件对您有帮助，欢迎赞助支持我们的开发工作！
+
+- 爱发电：[点击赞助](https://afdian.net/xxxxx)
+- PayPal：[点击赞助](https://paypal.me/xxxxx)
+
+所有赞助者都将获得：
+- 专属标识
+- 优先技术支持
+- 新功能建议优先采纳
+- 提前体验新版本
+
+## 鸣谢
+感谢以下项目和贡献者：
+- AkariLevel - 等级系统支持
+- PlaceholderAPI - 变量支持
+- bStats - 统计支持
+- 所有提供反馈和建议的用户 
