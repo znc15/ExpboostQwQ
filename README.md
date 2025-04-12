@@ -132,11 +132,6 @@ language:
 - `expboostqwq.command.check` - 允许查看经验加成状态
 - `expboostqwq.admin` - 管理员权限（包含所有权限，包括日志管理）
 
-## 统计
-
-本插件使用bStats进行匿名统计，可以在配置文件中关闭。
-[查看统计信息](https://bstats.org/plugin/bukkit/ExpboostQwQ/25432)
-
 ## 依赖
 
 - PlaceholderAPI（可选）：用于变量支持
