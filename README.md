@@ -224,7 +224,6 @@ language:
 
 1. 在GitHub上提交Issue
 2. 加入我们的交流群：[点击加入](https://qm.qq.com/q/fqjuNAOZMY)
-3. 发送邮件至：support@example.com
 
 ## 赞助支持
 
