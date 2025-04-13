@@ -69,8 +69,20 @@ settings:
   # 是否启用bStats统计
   enable_bstats: true
 
+  # 是否启用更新检查
+  check_update: true
+
+  # 更新检查URL
+  update_url: "https://api.tcbmc.cc/update/ExpBooster/update.json"
+
   # 默认语言设置 (zh_CN: 简体中文, en_US: 英文)
   default_language: "zh_CN"
+
+  # 加成计算方式
+  # multiply: 所有加成相乘 (默认)
+  # highest: 取最高的加成倍率
+  # add: 所有加成相加
+  boost_calculation: "multiply"
 
   # 日志设置
   logs:
@@ -124,7 +136,7 @@ language:
   # 默认语言
   default: "zh_CN"
   # 是否允许玩家自定义语言
-  allow_custom: true
+  allow_custom: true 
 ```
 
 ## 权限
