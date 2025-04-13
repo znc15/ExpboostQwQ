@@ -226,7 +226,7 @@ public class BoosterManager {
     
     /**
      * 获取玩家在特定等级组和经验来源下的有效经验加成倍率
-     * 会同时考虑玩家个人加成、全服加成和默认倍率，并将它们相乘得到最终倍率
+     * 会根据配置文件设置的计算方式来计算最终倍率
      * 
      * @param player 玩家对象
      * @param levelGroup 等级组名称
@@ -234,38 +234,69 @@ public class BoosterManager {
      * @return 最终的经验加成倍率
      */
     public double getEffectiveMultiplier(Player player, String levelGroup, String source) {
+        // 获取加成计算方式：highest(取最高) 或 multiply(相乘) 或 add(相加)
+        String calculationType = plugin.getConfig().getString("settings.boost_calculation", "multiply");
+        
         // 初始倍率为1.0
         double multiplier = 1.0;
+        double maxMultiplier = 1.0;
+        double addMultiplier = 0.0;
         
-        // 应用等级组特定倍率，优先级高于全局默认倍率
+        // 从全局默认倍率、等级组倍率、全服加成和玩家加成获取所有适用的倍率值
+        
+        // 1. 获取等级组倍率或全局默认倍率
+        double levelGroupMultiplier = 1.0;
         if (levelGroupBoosters.containsKey(levelGroup)) {
             PlayerBooster booster = levelGroupBoosters.get(levelGroup);
             if (booster.isActive()) {
-                multiplier *= booster.getMultiplier();
-                LogUtil.debug("应用等级组 " + levelGroup + " 倍率: " + booster.getMultiplier());
+                levelGroupMultiplier = booster.getMultiplier();
+                LogUtil.debug("应用等级组 " + levelGroup + " 倍率: " + levelGroupMultiplier);
             }
         } else {
             // 应用全局默认倍率
-            multiplier *= globalBooster.isActive() ? globalBooster.getMultiplier() : 1.0;
-            LogUtil.debug("应用全局默认倍率: " + multiplier);
+            levelGroupMultiplier = globalBooster.isActive() ? globalBooster.getMultiplier() : 1.0;
+            LogUtil.debug("应用全局默认倍率: " + levelGroupMultiplier);
         }
         
-        // 检查服务器全局加成
+        // 2. 获取全服加成倍率
+        double serverMultiplier = 1.0;
         if (hasActiveServerBooster()) {
             ServerBooster sb = getServerBooster();
             if (sb.matchesConditions(levelGroup, source)) {
-                multiplier *= sb.getMultiplier();
-                LogUtil.debug("应用服务器加成倍率: " + sb.getMultiplier());
+                serverMultiplier = sb.getMultiplier();
+                LogUtil.debug("应用服务器加成倍率: " + serverMultiplier);
             }
         }
         
-        // 检查玩家个人加成
+        // 3. 获取玩家个人加成倍率
+        double playerMultiplier = 1.0;
         if (hasPlayerBooster(player.getUniqueId())) {
             PlayerBooster pb = getPlayerBooster(player.getUniqueId());
             if (pb.matchesConditions(levelGroup, source)) {
-                multiplier *= pb.getMultiplier();
-                LogUtil.debug("应用玩家个人加成倍率: " + pb.getMultiplier());
+                playerMultiplier = pb.getMultiplier();
+                LogUtil.debug("应用玩家个人加成倍率: " + playerMultiplier);
             }
+        }
+        
+        // 根据配置的计算方式计算最终倍率
+        if (calculationType.equalsIgnoreCase("highest")) {
+            // 取最高倍率
+            maxMultiplier = Math.max(maxMultiplier, levelGroupMultiplier);
+            maxMultiplier = Math.max(maxMultiplier, serverMultiplier);
+            maxMultiplier = Math.max(maxMultiplier, playerMultiplier);
+            
+            multiplier = maxMultiplier;
+            LogUtil.debug("计算方式: 取最高倍率 = " + multiplier);
+        } else if (calculationType.equalsIgnoreCase("add")) {
+            // 相加方式（减去基础的1.0后相加）
+            addMultiplier = (levelGroupMultiplier - 1.0) + (serverMultiplier - 1.0) + (playerMultiplier - 1.0);
+            // 最终倍率 = 基础1.0 + 所有加成的和
+            multiplier = 1.0 + addMultiplier;
+            LogUtil.debug("计算方式: 相加倍率 = " + multiplier);
+        } else {
+            // 默认相乘方式
+            multiplier = levelGroupMultiplier * serverMultiplier * playerMultiplier;
+            LogUtil.debug("计算方式: 相乘倍率 = " + multiplier);
         }
         
         LogUtil.debug("玩家 " + player.getName() + " 在等级组 " + levelGroup + 
@@ -466,5 +497,55 @@ public class BoosterManager {
                 saveAll();
             }
         }, 1200L, 1200L);  // 每分钟运行一次
+    }
+    
+    /**
+     * 判断特定等级组是否有加成
+     * @param levelGroup 等级组名称
+     * @return 是否有加成
+     */
+    public boolean hasLevelGroupBooster(String levelGroup) {
+        PlayerBooster booster = levelGroupBoosters.get(levelGroup);
+        return booster != null && booster.isActive();
+    }
+    
+    /**
+     * 移除全服加成
+     * @return 是否成功移除
+     */
+    public boolean removeServerBooster() {
+        if (serverBooster == null) {
+            return false;
+        }
+        
+        serverBooster = null;
+        // 保存到数据文件
+        dataConfig.set("server_booster", null);
+        try {
+            dataConfig.save(dataFile);
+        } catch (IOException e) {
+            LogUtil.error("无法保存服务器加成数据: " + e.getMessage(), e);
+            return false;
+        }
+        
+        return true;
+    }
+    
+    /**
+     * 移除特定等级组的加成
+     * @param levelGroup 等级组名称
+     * @return 是否成功移除
+     */
+    public boolean removeLevelGroupBooster(String levelGroup) {
+        if (!levelGroupBoosters.containsKey(levelGroup)) {
+            return false;
+        }
+        
+        levelGroupBoosters.remove(levelGroup);
+        // 保存到配置文件
+        plugin.getConfig().set("multipliers.level_groups." + levelGroup, null);
+        plugin.saveConfig();
+        
+        return true;
     }
 } 

@@ -11,6 +11,7 @@ import org.littlesheep.expboostQwQ.listeners.ExpGainListener;
 import org.littlesheep.expboostQwQ.utils.LanguageManager;
 import org.littlesheep.expboostQwQ.utils.LogUtil;
 import org.littlesheep.expboostQwQ.utils.LevelApiUtil;
+import org.littlesheep.expboostQwQ.utils.UpdateChecker;
 
 /**
  * ExpboostQwQ 插件主类
@@ -26,6 +27,8 @@ public final class ExpboostQwQ extends JavaPlugin {
     // 语言管理器
     private LanguageManager languageManager;
     private boolean bStatsEnabled;
+    // 更新检查器
+    private UpdateChecker updateChecker;
 
     private void printLogo() {
         String[] logo = {
@@ -95,6 +98,13 @@ public final class ExpboostQwQ extends JavaPlugin {
             LogUtil.info("§b[ExpboostQwQ] §fbStats统计已启用");
         }
         
+        // 初始化并执行更新检查
+        if (getConfig().getBoolean("settings.check_update", true)) {
+            updateChecker = new UpdateChecker(this);
+            updateChecker.checkForUpdates();
+            LogUtil.info(languageManager.getMessage("messages.command.update_check_enabled", "§b[ExpboostQwQ] §f更新检查已启用"));
+        }
+        
         // 显示启用消息
         String enableMessage = languageManager.getMessage("messages.plugin.enabled", "§a插件已启用！默认语言: %language%");
         enableMessage = enableMessage.replace("%language%", languageManager.getDefaultLanguage());
@@ -156,6 +166,14 @@ public final class ExpboostQwQ extends JavaPlugin {
             }
         }
         
+        // 重新检查更新
+        if (getConfig().getBoolean("settings.check_update", true)) {
+            if (updateChecker == null) {
+                updateChecker = new UpdateChecker(this);
+            }
+            updateChecker.checkForUpdates();
+        }
+        
         String reloadMessage = languageManager != null 
                 ? languageManager.getMessage("messages.plugin.reload", "§a插件配置已重载！")
                 : "§a插件配置已重载！";
@@ -209,5 +227,14 @@ public final class ExpboostQwQ extends JavaPlugin {
      */
     public LanguageManager getLanguageManager() {
         return languageManager;
+    }
+    
+    /**
+     * 获取更新检查器
+     * 
+     * @return 更新检查器实例
+     */
+    public UpdateChecker getUpdateChecker() {
+        return updateChecker;
     }
 }

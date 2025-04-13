@@ -1,5 +1,5 @@
 name: ExpboostQwQ
-version: '1.0.0'
+version: '1.0.1'
 main: org.littlesheep.expboostQwQ.ExpboostQwQ
 api-version: 1.16
 authors: [LittleSheep]
@@ -26,6 +26,9 @@ permissions:
   expboostqwq.command.check:
     description: 允许查看经验加成状态
     default: true
+  expboostqwq.command.checkupdate:
+    description: 允许检查插件更新
+    default: op
   expboostqwq.admin:
     description: 管理员权限
     default: op
@@ -34,3 +37,4 @@ permissions:
       expboostqwq.command.player: true
       expboostqwq.command.server: true
       expboostqwq.command.check: true
+      expboostqwq.command.checkupdate: true

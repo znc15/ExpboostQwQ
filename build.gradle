@@ -6,7 +6,7 @@ plugins {
 }
 
 group = 'org.littlesheep'
-version = '1.0.0'
+version = '1.0.1'
 
 repositories {
     mavenCentral()
@@ -25,6 +25,9 @@ repositories {
         name = "helpchatRepoReleases"
         url = uri("https://repo.extendedclip.com/releases")
     }
+    maven {
+        url = "https://maven.pkg.jetbrains.space/public/p/kotlinx-html/maven"
+    }
     flatDir {
         dirs 'libs'
     }
@@ -34,9 +37,7 @@ dependencies {
     compileOnly("org.spigotmc:spigot-api:1.12-R0.1-SNAPSHOT")
     compileOnly fileTree(dir: 'libs', include: ['*.jar'])
     implementation("me.clip:placeholderapi:2.11.6")
-    implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.22"
     implementation 'org.bstats:bstats-bukkit:3.0.1'
-    implementation 'org.jetbrains.kotlin:kotlin-reflect:1.9.22'
 }
 
 tasks {

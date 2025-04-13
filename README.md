@@ -36,6 +36,9 @@
 - `/expbooster logs <日期> <行数>` - 查看指定日期的日志
 - `/expbooster logs list` - 列出所有日志文件
 - `/expbooster logs cleanup` - 手动清理过期日志
+- `/expbooster disable player <玩家名>` - 关闭玩家经验加成
+- `/expbooster disable server` - 关闭全服经验加成
+- `/expbooster disable group <等级组>` - 关闭等级组经验加成
 
 ### 选项说明
 

@@ -12,7 +12,7 @@ public class TimeUtils {
     
     // 正则表达式模式：匹配形如"5d"、"3h"、"30m"、"15s"的时间表示
     // 第一个捕获组是数字部分，第二个捕获组是单位部分
-    private static final Pattern TIME_PATTERN = Pattern.compile("(\\d+)([dhms])");
+    private static final Pattern TIME_PATTERN = Pattern.compile("(\\d+(\\.\\d+)?)([dhms])");
     
     /**
      * 解析时间字符串为秒数
@@ -37,21 +37,21 @@ public class TimeUtils {
         
         while (matcher.find()) {
             found = true;
-            long value = Long.parseLong(matcher.group(1));
-            String unit = matcher.group(2);
+            double value = Double.parseDouble(matcher.group(1));
+            String unit = matcher.group(3);
             
             switch (unit) {
                 case "d":  // 天
-                    seconds += TimeUnit.DAYS.toSeconds(value);
+                    seconds += TimeUnit.DAYS.toSeconds((long)value) + (long)((value % 1) * 24 * 60 * 60);
                     break;
                 case "h":  // 小时
-                    seconds += TimeUnit.HOURS.toSeconds(value);
+                    seconds += TimeUnit.HOURS.toSeconds((long)value) + (long)((value % 1) * 60 * 60);
                     break;
                 case "m":  // 分钟
-                    seconds += TimeUnit.MINUTES.toSeconds(value);
+                    seconds += TimeUnit.MINUTES.toSeconds((long)value) + (long)((value % 1) * 60);
                     break;
                 case "s":  // 秒
-                    seconds += value;
+                    seconds += (long)value;
                     break;
                 default:
                     break;
