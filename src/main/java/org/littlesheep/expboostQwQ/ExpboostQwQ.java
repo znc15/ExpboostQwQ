@@ -2,7 +2,6 @@ package org.littlesheep.expboostQwQ;
 
 import org.bstats.bukkit.Metrics;
 import org.bukkit.Bukkit;
-import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.littlesheep.expboostQwQ.commands.ExpBoosterCommand;
 import org.littlesheep.expboostQwQ.data.BoosterManager;
@@ -63,26 +62,27 @@ public final class ExpboostQwQ extends JavaPlugin {
         // 打印 LOGO
         printLogo();
         
-        // 保存默认配置
+        // 保存默认配置文件
         saveDefaultConfig();
         
         // 初始化日志工具类
         LogUtil.init(this);
         
-        // 初始化语言管理器（在BoosterManager之前初始化）
+        // 初始化语言管理器
         languageManager = new LanguageManager(this);
         
         // 初始化 LevelApiUtil
         LevelApiUtil.init(this);
         
-        // 初始化Booster管理器
+        // 初始化加成管理器
         boosterManager = new BoosterManager(this);
         
         // 注册命令
-        registerCommands();
+        getCommand("expbooster").setExecutor(new ExpBoosterCommand(this));
+        getCommand("expbooster").setTabCompleter(new ExpBoosterCommand(this));
         
-        // 注册监听器
-        registerListeners();
+        // 注册事件监听器
+        getServer().getPluginManager().registerEvents(new ExpGainListener(this), this);
         
         // 注册PAPI扩展
         if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
@@ -98,11 +98,23 @@ public final class ExpboostQwQ extends JavaPlugin {
             LogUtil.info("§b[ExpboostQwQ] §fbStats统计已启用");
         }
         
-        // 初始化并执行更新检查
+        // 检查更新
         if (getConfig().getBoolean("settings.check_update", true)) {
             updateChecker = new UpdateChecker(this);
             updateChecker.checkForUpdates();
-            LogUtil.info(languageManager.getMessage("messages.command.update_check_enabled", "§b[ExpboostQwQ] §f更新检查已启用"));
+        }
+        
+        // 启动日志清理任务
+        if (getConfig().getBoolean("settings.logs.auto_delete", true)) {
+            int checkInterval = getConfig().getInt("settings.logs.check_interval", 60);
+            
+            getServer().getScheduler().runTaskTimer(this, () -> {
+                LogUtil.cleanupLogs();
+            }, 20L * 60 * checkInterval, 20L * 60 * checkInterval);
+            
+            if (getConfig().getBoolean("settings.logs.check_on_startup", true)) {
+                LogUtil.cleanupLogs();
+            }
         }
         
         // 显示启用消息
@@ -136,83 +148,13 @@ public final class ExpboostQwQ extends JavaPlugin {
     }
     
     /**
-     * 重载插件配置和数据
+     * 重载插件配置
      */
     public void reload() {
-        LogUtil.info("正在重载插件配置和数据...");
-        
-        // 重载配置文件
         reloadConfig();
-        
-        // 重新初始化日志工具
-        LogUtil.init(this);
-        
-        // 重载语言文件
-        if (languageManager != null) {
-            languageManager.reload();
-        }
-        
-        // 重载加成数据
+        languageManager.reload();
         boosterManager.loadData();
-        
-        // 重新加载bStats设置
-        boolean newBStatsEnabled = getConfig().getBoolean("settings.enable_bstats", true);
-        if (newBStatsEnabled != bStatsEnabled) {
-            bStatsEnabled = newBStatsEnabled;
-            if (bStatsEnabled) {
-                int pluginId = 25432;
-                new Metrics(this, pluginId);
-                LogUtil.info("bStats统计已启用");
-            }
-        }
-        
-        // 重新检查更新
-        if (getConfig().getBoolean("settings.check_update", true)) {
-            if (updateChecker == null) {
-                updateChecker = new UpdateChecker(this);
-            }
-            updateChecker.checkForUpdates();
-        }
-        
-        String reloadMessage = languageManager != null 
-                ? languageManager.getMessage("messages.plugin.reload", "§a插件配置已重载！")
-                : "§a插件配置已重载！";
-        LogUtil.info(reloadMessage);
-    }
-    
-    /**
-     * 注册插件命令
-     * 将命令执行器和Tab补全器绑定到命令
-     */
-    private void registerCommands() {
-        PluginCommand command = getCommand("expbooster");
-        if (command != null) {
-            ExpBoosterCommand commandExecutor = new ExpBoosterCommand(this);
-            command.setExecutor(commandExecutor);
-            command.setTabCompleter(commandExecutor);
-        }
-    }
-    
-    /**
-     * 保存配置文件，使用Bukkit标准方法
-     * 不会修改配置文件的内容或格式，直接保存当前内存中的配置
-     */
-    public void saveConfigWithComments() {
-        try {
-            // 直接使用Bukkit标准方法保存配置
-            saveConfig();
-            LogUtil.debug("已保存配置文件");
-        } catch (Exception e) {
-            LogUtil.error("保存配置文件时出错", e);
-        }
-    }
-    
-    /**
-     * 注册事件监听器
-     * 监听AkariLevel的经验变更事件
-     */
-    private void registerListeners() {
-        Bukkit.getPluginManager().registerEvents(new ExpGainListener(this), this);
+        LogUtil.info("插件配置已重载！");
     }
     
     /**
