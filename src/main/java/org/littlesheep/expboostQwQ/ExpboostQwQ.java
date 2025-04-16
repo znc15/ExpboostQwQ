@@ -193,4 +193,13 @@ public final class ExpboostQwQ extends JavaPlugin {
     public UpdateChecker getUpdateChecker() {
         return updateChecker;
     }
+    
+    /**
+     * 保存配置文件（保留注释）
+     * 使用标准的saveConfig方法，同时记录日志
+     */
+    public void saveConfigWithComments() {
+        saveConfig();
+        LogUtil.debug("已保存配置文件");
+    }
 }
