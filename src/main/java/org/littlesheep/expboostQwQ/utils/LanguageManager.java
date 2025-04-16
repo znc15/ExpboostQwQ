@@ -173,7 +173,7 @@ public class LanguageManager {
         
         // 更新配置中的默认语言
         plugin.getConfig().set("language.default", langCode);
-        plugin.saveConfig();
+        plugin.saveConfigWithComments();
         
         // 更新当前默认语言
         defaultLanguage = langCode;
@@ -228,7 +228,7 @@ public class LanguageManager {
     public void setPlayerLanguage(String uuid, String langCode) {
         if (languages.containsKey(langCode)) {
             plugin.getConfig().set("player_languages." + uuid, langCode);
-            plugin.saveConfig();
+            plugin.saveConfigWithComments();
             LogUtil.debug("已为用户 " + uuid + " 设置语言: " + langCode);
         } else {
             LogUtil.warn("无法为用户 " + uuid + " 设置语言 '" + langCode + "'，该语言不存在");

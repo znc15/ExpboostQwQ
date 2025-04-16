@@ -601,7 +601,7 @@ public class ExpBoosterCommand implements CommandExecutor, TabCompleter {
                         .replace("%global%", String.valueOf(globalOrGroupMultiplier))
                         .replace("%server%", String.valueOf(serverMultiplier))
                         .replace("%player%", String.valueOf(playerMultiplier))
-                        .replace("%multiplier%", String.valueOf(totalMultiplier)));
+                        .replace("%multiplier%", String.valueOf(addResult)));
                 
             } else {
                 // 相乘模式

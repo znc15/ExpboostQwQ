@@ -1,0 +1,40 @@
+name: ExpboostQwQ
+version: '1.0.1'
+main: org.littlesheep.expboostQwQ.ExpboostQwQ
+api-version: 1.16
+authors: [LittleSheep]
+description: 一个强大的经验加成插件
+softdepend: [PlaceholderAPI, AkariLevel]
+
+commands:
+  expbooster:
+    description: ExpboostQwQ主命令
+    usage: /expbooster help
+    aliases: [eb, expb]
+    permission: expboostqwq.command.help
+
+permissions:
+  expboostqwq.command.help:
+    description: 允许使用帮助命令
+    default: true
+  expboostqwq.command.player:
+    description: 允许设置玩家经验加成
+    default: op
+  expboostqwq.command.server:
+    description: 允许设置全服经验加成
+    default: op
+  expboostqwq.command.check:
+    description: 允许查看经验加成状态
+    default: true
+  expboostqwq.command.checkupdate:
+    description: 允许检查插件更新
+    default: op
+  expboostqwq.admin:
+    description: 管理员权限
+    default: op
+    children:
+      expboostqwq.command.help: true
+      expboostqwq.command.player: true
+      expboostqwq.command.server: true
+      expboostqwq.command.check: true
+      expboostqwq.command.checkupdate: true

@@ -420,7 +420,7 @@ public class BoosterManager {
             plugin.getConfig().set("multipliers.global_default", null);
         }
         
-        plugin.saveConfig();
+        plugin.saveConfigWithComments();
         
         // 保存到文件
         try {

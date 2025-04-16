@@ -194,6 +194,20 @@ public final class ExpboostQwQ extends JavaPlugin {
     }
     
     /**
+     * 保存配置文件，使用Bukkit标准方法
+     * 不会修改配置文件的内容或格式，直接保存当前内存中的配置
+     */
+    public void saveConfigWithComments() {
+        try {
+            // 直接使用Bukkit标准方法保存配置
+            saveConfig();
+            LogUtil.debug("已保存配置文件");
+        } catch (Exception e) {
+            LogUtil.error("保存配置文件时出错", e);
+        }
+    }
+    
+    /**
      * 注册事件监听器
      * 监听AkariLevel的经验变更事件
      */
