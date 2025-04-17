@@ -13,6 +13,7 @@ import java.util.Date;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.nio.charset.StandardCharsets;
 
 /**
  * 日志工具类
@@ -296,14 +297,24 @@ public class LogUtil {
         if (logFile == null || !logFile.exists()) {
             return new String[]{"没有找到日志文件"};
         }
-        
+
+        // 确保日志文件存在且可读
+        if (!logFile.canRead()) {
+            return new String[]{"无法读取日志文件：权限不足"};
+        }
+
         // 限制最大行数
         lines = Math.min(lines, MAX_LOG_LINES);
         
         try {
             java.util.List<String> allLines = new java.util.ArrayList<>(
-                java.nio.file.Files.readAllLines(logFile.toPath())
+                java.nio.file.Files.readAllLines(logFile.toPath(), StandardCharsets.UTF_8)
             );
+            
+            // 如果文件为空
+            if (allLines.isEmpty()) {
+                return new String[]{"日志文件为空"};
+            }
             
             // 如果请求的行数大于实际行数，返回所有行
             if (lines >= allLines.size()) {
@@ -315,6 +326,8 @@ public class LogUtil {
                          .toArray(new String[0]);
         } catch (IOException e) {
             return new String[]{"读取日志文件失败: " + e.getMessage()};
+        } catch (Exception e) {
+            return new String[]{"处理日志文件时发生错误: " + e.getMessage()};
         }
     }
     

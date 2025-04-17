@@ -1155,7 +1155,7 @@ public class ExpBoosterCommand implements CommandExecutor, TabCompleter {
         if (args[1].equalsIgnoreCase("list")) {
             // 列出所有日志文件
             File[] logFiles = LogUtil.getLogFiles();
-            if (logFiles.length == 0) {
+            if (logFiles == null || logFiles.length == 0) {
                 sender.sendMessage(plugin.getLanguageManager().getMessage(
                         langCode,
                         "messages.logs.no_files",
@@ -1224,7 +1224,7 @@ public class ExpBoosterCommand implements CommandExecutor, TabCompleter {
             logs = LogUtil.getRecentLogs(lines);
         }
         
-        if (logs.length == 0) {
+        if (logs == null || logs.length == 0) {
             sender.sendMessage(plugin.getLanguageManager().getMessage(
                     langCode,
                     "messages.logs.no_logs",
