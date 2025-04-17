@@ -132,7 +132,14 @@ public class LogUtil {
         for (File file : logFiles) {
             try {
                 // 从文件名解析日期（格式：yyyy-MM-dd.log）
-                String dateStr = file.getName().substring(0, 10);
+                String fileName = file.getName();
+                // 确保文件名长度足够再进行截取
+                if (fileName.length() < 10) {
+                    warn("无效的日志文件名格式: " + fileName);
+                    continue;
+                }
+                
+                String dateStr = fileName.substring(0, 10);
                 Date fileDate = fileNameFormat.parse(dateStr);
                 
                 // 如果文件日期早于截止日期且不是当前日志文件，删除它
@@ -144,6 +151,8 @@ public class LogUtil {
                 }
             } catch (ParseException e) {
                 warn("无法解析日志文件日期: " + file.getName());
+            } catch (Exception e) {
+                warn("处理日志文件时出错: " + file.getName() + ", 错误: " + e.getMessage());
             }
         }
         
@@ -384,9 +393,27 @@ public class LogUtil {
      * @return 日志文件列表
      */
     public static File[] getLogFiles() {
-        File logsDir = logFile.getParentFile();
-        if (logsDir != null && logsDir.exists()) {
+        if (logFile == null) {
+            File pluginDataFolder = plugin.getDataFolder();
+            if (!pluginDataFolder.exists()) {
+                return new File[0];
+            }
+            
+            File logsDir = new File(pluginDataFolder, "logs");
+            if (!logsDir.exists() || !logsDir.isDirectory()) {
+                return new File[0];
+            }
+            
             return logsDir.listFiles((dir, name) -> name.endsWith(".log"));
+        }
+        
+        File logsDir = logFile.getParentFile();
+        if (logsDir != null && logsDir.exists() && logsDir.isDirectory()) {
+            File[] files = logsDir.listFiles((dir, name) -> name.endsWith(".log"));
+            if (files == null) {
+                return new File[0];
+            }
+            return files;
         }
         return new File[0];
     }
@@ -398,21 +425,52 @@ public class LogUtil {
      * @return 日志内容
      */
     public static String[] getLogsFromDate(String date, int lines) {
-        File logsDir = logFile.getParentFile();
-        if (logsDir == null || !logsDir.exists()) {
-            return new String[]{"日志目录不存在"};
+        if (date == null || date.isEmpty()) {
+            return new String[]{"无效的日期格式"};
         }
         
+        // 验证日期格式
+        if (!date.matches("\\d{4}-\\d{2}-\\d{2}")) {
+            return new String[]{"无效的日期格式，请使用 yyyy-MM-dd 格式"};
+        }
+        
+        // 获取日志目录
+        File logsDir;
+        if (logFile != null) {
+            logsDir = logFile.getParentFile();
+        } else {
+            logsDir = new File(plugin.getDataFolder(), "logs");
+        }
+        
+        if (!logsDir.exists() || !logsDir.isDirectory()) {
+            return new String[]{"日志目录不存在或不可访问"};
+        }
+        
+        debug("正在查找日期为 " + date + " 的日志文件");
+        
+        // 创建目标日志文件对象
         File targetLog = new File(logsDir, date + ".log");
+        debug("目标日志文件路径: " + targetLog.getAbsolutePath());
+        
         if (!targetLog.exists()) {
-            return new String[]{"找不到指定日期的日志文件"};
+            debug("目标日志文件不存在: " + targetLog.getAbsolutePath());
+            return new String[]{"找不到指定日期的日志文件: " + date};
+        }
+        
+        if (!targetLog.isFile()) {
+            debug("目标路径不是文件: " + targetLog.getAbsolutePath());
+            return new String[]{"指定路径不是有效的文件"};
         }
         
         // 确保日志文件可读
         if (!targetLog.canRead()) {
+            debug("目标日志文件不可读: " + targetLog.getAbsolutePath());
             return new String[]{"无法读取日志文件：权限不足"};
         }
         
+        debug("文件存在且可读，正在读取内容");
+        
+        // 限制最大行数
         lines = Math.min(lines, MAX_LOG_LINES);
         
         try {
@@ -420,20 +478,26 @@ public class LogUtil {
                 java.nio.file.Files.readAllLines(targetLog.toPath(), StandardCharsets.UTF_8)
             );
             
+            debug("成功读取文件，共 " + allLines.size() + " 行");
+            
             // 如果文件为空
             if (allLines.isEmpty()) {
                 return new String[]{"日志文件为空"};
             }
             
             if (lines >= allLines.size()) {
+                debug("返回所有行: " + allLines.size() + " 行");
                 return allLines.toArray(new String[0]);
             }
             
+            debug("返回最后 " + lines + " 行");
             return allLines.subList(allLines.size() - lines, allLines.size())
                          .toArray(new String[0]);
         } catch (IOException e) {
+            error("读取日志文件失败", e);
             return new String[]{"读取日志文件失败: " + e.getMessage()};
         } catch (Exception e) {
+            error("处理日志文件时发生错误", e);
             return new String[]{"处理日志文件时发生错误: " + e.getMessage()};
         }
     }
@@ -459,7 +523,14 @@ public class LogUtil {
         int deletedCount = 0;
         for (File file : logFiles) {
             try {
-                String dateStr = file.getName().substring(0, 10);
+                String fileName = file.getName();
+                // 确保文件名长度足够再进行截取
+                if (fileName.length() < 10) {
+                    warn("无效的日志文件名格式: " + fileName);
+                    continue;
+                }
+                
+                String dateStr = fileName.substring(0, 10);
                 Date fileDate = fileNameFormat.parse(dateStr);
                 
                 if (fileDate.getTime() < cutoffTime && !file.equals(logFile)) {
@@ -469,6 +540,8 @@ public class LogUtil {
                 }
             } catch (ParseException e) {
                 warn("无法解析日志文件日期: " + file.getName());
+            } catch (Exception e) {
+                warn("处理日志文件时出错: " + file.getName() + ", 错误: " + e.getMessage());
             }
         }
         

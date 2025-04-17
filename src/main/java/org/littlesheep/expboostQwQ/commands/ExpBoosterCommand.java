@@ -1147,7 +1147,7 @@ public class ExpBoosterCommand implements CommandExecutor, TabCompleter {
                     "messages.usage.logs",
                     "§c[ExpboostQwQ] 用法:\n" +
                     "§c/expbooster logs <行数> - 查看最近的日志\n" +
-                    "§c/expbooster logs <日期> <行数> - 查看指定日期的日志\n" +
+                    "§c/expbooster logs <日期> <行数> - 查看指定日期的日志 (格式: yyyy-MM-dd)\n" +
                     "§c/expbooster logs list - 列出所有日志文件"));
             return;
         }
@@ -1170,16 +1170,28 @@ public class ExpBoosterCommand implements CommandExecutor, TabCompleter {
             
             for (File file : logFiles) {
                 String fileName = file.getName();
-                sender.sendMessage("§7- §f" + fileName.substring(0, fileName.length() - 4));
+                // 文件名可能是日期格式（yyyy-MM-dd.log）或其他格式
+                if (fileName.endsWith(".log")) {
+                    if (fileName.length() >= 14) { // yyyy-MM-dd.log 长度为14
+                        sender.sendMessage("§7- §f" + fileName.substring(0, fileName.length() - 4));
+                    } else {
+                        sender.sendMessage("§7- §f" + fileName);
+                    }
+                } else {
+                    sender.sendMessage("§7- §f" + fileName);
+                }
             }
             return;
         }
+        
+        // 检查第一个参数是否是日期格式 (yyyy-MM-dd)
+        boolean isDateArg = args[1].matches("\\d{4}-\\d{2}-\\d{2}");
         
         // 解析行数和日期
         int lines = 10; // 默认显示10行
         String date = null;
         
-        if (args.length >= 3) {
+        if (args.length >= 3 && isDateArg) {
             // 格式: /expbooster logs <日期> <行数>
             date = args[1];
             try {
@@ -1199,28 +1211,39 @@ public class ExpBoosterCommand implements CommandExecutor, TabCompleter {
                 return;
             }
         } else {
-            // 格式: /expbooster logs <行数>
-            try {
-                lines = Integer.parseInt(args[1]);
-                if (lines <= 0) {
+            // 格式: /expbooster logs <行数> 或 /expbooster logs <日期>
+            if (isDateArg) {
+                // 如果是日期格式，默认显示10行
+                date = args[1];
+            } else {
+                // 否则尝试解析为行数
+                try {
+                    lines = Integer.parseInt(args[1]);
+                    if (lines <= 0) {
+                        sender.sendMessage(plugin.getLanguageManager().getMessage(
+                                langCode,
+                                "messages.logs.invalid_lines",
+                                "§c[ExpboostQwQ] 行数必须大于0"));
+                        return;
+                    }
+                } catch (NumberFormatException e) {
+                    // 既不是有效的日期格式，也不是有效的数字
                     sender.sendMessage(plugin.getLanguageManager().getMessage(
                             langCode,
-                            "messages.logs.invalid_lines",
-                            "§c[ExpboostQwQ] 行数必须大于0"));
+                            "messages.logs.invalid_format",
+                            "§c[ExpboostQwQ] 无效的参数格式，请使用日期(yyyy-MM-dd)或行数"));
                     return;
                 }
-            } catch (NumberFormatException e) {
-                // 可能是日期格式
-                date = args[1];
-                lines = 10; // 使用默认行数
             }
         }
         
         // 读取并显示日志
         String[] logs;
         if (date != null) {
+            LogUtil.debug("读取日期 " + date + " 的日志，行数: " + lines);
             logs = LogUtil.getLogsFromDate(date, lines);
         } else {
+            LogUtil.debug("读取最近的日志，行数: " + lines);
             logs = LogUtil.getRecentLogs(lines);
         }
         
