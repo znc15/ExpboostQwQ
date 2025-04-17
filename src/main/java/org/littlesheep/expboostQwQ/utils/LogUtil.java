@@ -363,29 +363,109 @@ public class LogUtil {
         // 限制最大行数
         lines = Math.min(lines, MAX_LOG_LINES);
         
-        try {
-            java.util.List<String> allLines = new java.util.ArrayList<>(
-                java.nio.file.Files.readAllLines(logFile.toPath(), StandardCharsets.UTF_8)
-            );
-            
-            // 如果文件为空
-            if (allLines.isEmpty()) {
-                return new String[]{"日志文件为空"};
+        // 尝试不同的字符集读取文件
+        java.util.List<String> allLines = new java.util.ArrayList<>();
+        java.nio.charset.Charset[] charsets = {
+            StandardCharsets.UTF_8,
+            StandardCharsets.ISO_8859_1,
+            java.nio.charset.Charset.forName("GBK"),
+            java.nio.charset.Charset.forName("GB2312"),
+            java.nio.charset.Charset.defaultCharset()
+        };
+        
+        Exception lastException = null;
+        boolean readSuccess = false;
+        
+        for (java.nio.charset.Charset charset : charsets) {
+            try {
+                debug("尝试使用字符集 " + charset.name() + " 读取当前日志文件");
+                allLines = readLinesWithCharset(logFile, charset);
+                readSuccess = true;
+                debug("使用 " + charset.name() + " 成功读取当前日志文件");
+                break;
+            } catch (Exception e) {
+                debug("使用 " + charset.name() + " 读取当前日志文件失败: " + e.getMessage());
+                lastException = e;
             }
-            
-            // 如果请求的行数大于实际行数，返回所有行
-            if (lines >= allLines.size()) {
-                return allLines.toArray(new String[0]);
-            }
-            
-            // 否则返回最后的n行
-            return allLines.subList(allLines.size() - lines, allLines.size())
-                         .toArray(new String[0]);
-        } catch (IOException e) {
-            return new String[]{"读取日志文件失败: " + e.getMessage()};
-        } catch (Exception e) {
-            return new String[]{"处理日志文件时发生错误: " + e.getMessage()};
         }
+        
+        // 如果所有字符集都失败，尝试按字节读取文件
+        if (!readSuccess) {
+            try {
+                debug("尝试按字节读取当前日志文件");
+                allLines = readFileByBytes(logFile);
+                readSuccess = true;
+                debug("按字节读取当前日志文件成功");
+            } catch (Exception e) {
+                debug("按字节读取当前日志文件失败: " + e.getMessage());
+                lastException = e;
+            }
+        }
+        
+        // 如果仍然失败，返回错误信息
+        if (!readSuccess) {
+            error("无法以任何编码方式读取当前日志文件", lastException);
+            return new String[]{"无法读取日志文件: " + (lastException != null ? lastException.getMessage() : "未知错误")};
+        }
+        
+        // 如果文件为空
+        if (allLines.isEmpty()) {
+            return new String[]{"日志文件为空"};
+        }
+        
+        // 如果请求的行数大于实际行数，返回所有行
+        if (lines >= allLines.size()) {
+            return allLines.toArray(new String[0]);
+        }
+        
+        // 否则返回最后的n行
+        return allLines.subList(allLines.size() - lines, allLines.size())
+                     .toArray(new String[0]);
+    }
+    
+    /**
+     * 使用指定字符集读取文件的所有行
+     * @param file 要读取的文件
+     * @param charset 字符集
+     * @return 文件内容的行列表
+     * @throws IOException 如果读取失败
+     */
+    private static java.util.List<String> readLinesWithCharset(File file, java.nio.charset.Charset charset) throws IOException {
+        return java.nio.file.Files.readAllLines(file.toPath(), charset);
+    }
+    
+    /**
+     * 按字节读取文件，跳过无法解析的字符
+     * @param file 要读取的文件
+     * @return 文件内容的行列表
+     * @throws IOException 如果读取失败
+     */
+    private static java.util.List<String> readFileByBytes(File file) throws IOException {
+        java.util.List<String> lines = new java.util.ArrayList<>();
+        StringBuilder currentLine = new StringBuilder();
+        
+        try (java.io.FileInputStream fis = new java.io.FileInputStream(file)) {
+            int b;
+            while ((b = fis.read()) != -1) {
+                // 如果是换行符，添加当前行并重置
+                if (b == '\n') {
+                    lines.add(currentLine.toString());
+                    currentLine = new StringBuilder();
+                } 
+                // 如果是可打印字符，添加到当前行
+                else if (b >= 32 && b < 127) {
+                    currentLine.append((char) b);
+                }
+                // 跳过其他无法打印的字符
+            }
+            
+            // 添加最后一行（如果有）
+            if (currentLine.length() > 0) {
+                lines.add(currentLine.toString());
+            }
+        }
+        
+        return lines;
     }
     
     /**
@@ -473,33 +553,66 @@ public class LogUtil {
         // 限制最大行数
         lines = Math.min(lines, MAX_LOG_LINES);
         
-        try {
-            java.util.List<String> allLines = new java.util.ArrayList<>(
-                java.nio.file.Files.readAllLines(targetLog.toPath(), StandardCharsets.UTF_8)
-            );
-            
-            debug("成功读取文件，共 " + allLines.size() + " 行");
-            
-            // 如果文件为空
-            if (allLines.isEmpty()) {
-                return new String[]{"日志文件为空"};
+        // 尝试不同的字符集读取文件
+        java.util.List<String> allLines = new java.util.ArrayList<>();
+        java.nio.charset.Charset[] charsets = {
+            StandardCharsets.UTF_8,
+            StandardCharsets.ISO_8859_1,
+            java.nio.charset.Charset.forName("GBK"),
+            java.nio.charset.Charset.forName("GB2312"),
+            java.nio.charset.Charset.defaultCharset()
+        };
+        
+        Exception lastException = null;
+        boolean readSuccess = false;
+        
+        for (java.nio.charset.Charset charset : charsets) {
+            try {
+                debug("尝试使用字符集 " + charset.name() + " 读取文件");
+                allLines = readLinesWithCharset(targetLog, charset);
+                readSuccess = true;
+                debug("使用 " + charset.name() + " 成功读取文件");
+                break;
+            } catch (Exception e) {
+                debug("使用 " + charset.name() + " 读取文件失败: " + e.getMessage());
+                lastException = e;
             }
-            
-            if (lines >= allLines.size()) {
-                debug("返回所有行: " + allLines.size() + " 行");
-                return allLines.toArray(new String[0]);
-            }
-            
-            debug("返回最后 " + lines + " 行");
-            return allLines.subList(allLines.size() - lines, allLines.size())
-                         .toArray(new String[0]);
-        } catch (IOException e) {
-            error("读取日志文件失败", e);
-            return new String[]{"读取日志文件失败: " + e.getMessage()};
-        } catch (Exception e) {
-            error("处理日志文件时发生错误", e);
-            return new String[]{"处理日志文件时发生错误: " + e.getMessage()};
         }
+        
+        // 如果所有字符集都失败，尝试按字节读取文件
+        if (!readSuccess) {
+            try {
+                debug("尝试按字节读取文件");
+                allLines = readFileByBytes(targetLog);
+                readSuccess = true;
+                debug("按字节读取文件成功");
+            } catch (Exception e) {
+                debug("按字节读取文件失败: " + e.getMessage());
+                lastException = e;
+            }
+        }
+        
+        // 如果仍然失败，返回错误信息
+        if (!readSuccess || allLines.isEmpty()) {
+            error("无法以任何编码方式读取日志文件", lastException);
+            return new String[]{"无法读取日志文件: " + (lastException != null ? lastException.getMessage() : "未知错误")};
+        }
+        
+        debug("成功读取文件，共 " + allLines.size() + " 行");
+        
+        // 如果文件为空
+        if (allLines.isEmpty()) {
+            return new String[]{"日志文件为空"};
+        }
+        
+        if (lines >= allLines.size()) {
+            debug("返回所有行: " + allLines.size() + " 行");
+            return allLines.toArray(new String[0]);
+        }
+        
+        debug("返回最后 " + lines + " 行");
+        return allLines.subList(allLines.size() - lines, allLines.size())
+                     .toArray(new String[0]);
     }
     
     /**
