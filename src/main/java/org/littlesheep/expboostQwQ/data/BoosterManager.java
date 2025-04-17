@@ -142,9 +142,16 @@ public class BoosterManager {
     public void setGlobalDefaultMultiplier(double multiplier, long duration) {
         long endTime = (duration == -1) ? -1 : System.currentTimeMillis() + (duration * 1000);
         this.globalBooster = new PlayerBooster(multiplier, endTime, "", "");
-        plugin.getConfig().set("multipliers.global_default.multiplier", multiplier);
-        plugin.getConfig().set("multipliers.global_default.end_time", endTime);
-        plugin.saveConfig();
+        
+        // 保存到数据文件而不是配置文件
+        dataConfig.set("global_default.multiplier", multiplier);
+        dataConfig.set("global_default.end_time", endTime);
+        
+        try {
+            dataConfig.save(dataFile);
+        } catch (IOException e) {
+            LogUtil.error("无法保存全局默认倍率数据: " + e.getMessage(), e);
+        }
         
         // 记录日志
         if (plugin.getConfig().getBoolean("settings.log_exp_boost", true)) {
@@ -189,10 +196,16 @@ public class BoosterManager {
         PlayerBooster booster = new PlayerBooster(multiplier, endTime, levelGroup, "");
         levelGroupBoosters.put(levelGroup, booster);
         
-        // 保存到配置文件
-        plugin.getConfig().set("multipliers.level_groups." + levelGroup + ".multiplier", multiplier);
-        plugin.getConfig().set("multipliers.level_groups." + levelGroup + ".end_time", endTime);
-        plugin.saveConfig();
+        // 保存到数据文件而不是配置文件
+        dataConfig.set("level_groups." + levelGroup + ".multiplier", multiplier);
+        dataConfig.set("level_groups." + levelGroup + ".end_time", endTime);
+        
+        try {
+            dataConfig.save(dataFile);
+        } catch (IOException e) {
+            LogUtil.error("无法保存等级组倍率数据: " + e.getMessage(), e);
+            return false;
+        }
         
         // 记录日志
         if (plugin.getConfig().getBoolean("settings.log_exp_boost", true)) {
@@ -313,9 +326,19 @@ public class BoosterManager {
         playerBoosters.clear();
         serverBooster = null;
         
-        // 加载全局默认倍率
-        double globalMultiplier = plugin.getConfig().getDouble("multipliers.global_default.multiplier", 1.0);
-        long globalEndTime = plugin.getConfig().getLong("multipliers.global_default.end_time", -1);
+        // 尝试首先从dataConfig加载全局默认倍率
+        double globalMultiplier = 1.0;
+        long globalEndTime = -1;
+        
+        if (dataConfig.contains("global_default")) {
+            globalMultiplier = dataConfig.getDouble("global_default.multiplier", 1.0);
+            globalEndTime = dataConfig.getLong("global_default.end_time", -1);
+        } else if (plugin.getConfig().contains("multipliers.global_default")) {
+            // 向后兼容：如果在数据文件中找不到，则尝试从旧的配置文件结构加载
+            globalMultiplier = plugin.getConfig().getDouble("multipliers.global_default.multiplier", 1.0);
+            globalEndTime = plugin.getConfig().getLong("multipliers.global_default.end_time", -1);
+        }
+        
         globalBooster = new PlayerBooster(globalMultiplier, globalEndTime, "", "");
         if (!globalBooster.isActive()) {
             globalBooster = new PlayerBooster(1.0, -1, "", "");
@@ -340,8 +363,7 @@ public class BoosterManager {
         // 加载服务器加成数据
         if (dataConfig.contains("server_booster")) {
             double serverMultiplier = dataConfig.getDouble("server_booster.multiplier");
-            long serverEndTime = dataConfig.getDouble("server_booster.end_time") > 0 ? 
-                    dataConfig.getLong("server_booster.end_time") : -1;
+            long serverEndTime = dataConfig.getLong("server_booster.end_time", -1);
             String levelGroup = dataConfig.getString("server_booster.level_group", "");
             String source = dataConfig.getString("server_booster.source", "");
             
@@ -352,8 +374,21 @@ public class BoosterManager {
         }
         
         // 加载等级组倍率数据
-        if (plugin.getConfig().contains("multipliers.level_groups")) {
-            levelGroupBoosters.clear();
+        levelGroupBoosters.clear();
+        
+        // 首先尝试从dataConfig加载
+        if (dataConfig.contains("level_groups")) {
+            for (String group : dataConfig.getConfigurationSection("level_groups").getKeys(false)) {
+                double groupMultiplier = dataConfig.getDouble("level_groups." + group + ".multiplier", 1.0);
+                long groupEndTime = dataConfig.getLong("level_groups." + group + ".end_time", -1);
+                
+                PlayerBooster booster = new PlayerBooster(groupMultiplier, groupEndTime, group, "");
+                if (booster.isActive()) {
+                    levelGroupBoosters.put(group, booster);
+                }
+            }
+        } else if (plugin.getConfig().contains("multipliers.level_groups")) {
+            // 向后兼容：如果在数据文件中找不到，则尝试从旧的配置文件结构加载
             for (String group : plugin.getConfig().getConfigurationSection("multipliers.level_groups").getKeys(false)) {
                 double groupMultiplier = plugin.getConfig().getDouble("multipliers.level_groups." + group + ".multiplier", 1.0);
                 long groupEndTime = plugin.getConfig().getLong("multipliers.level_groups." + group + ".end_time", -1);
@@ -405,22 +440,20 @@ public class BoosterManager {
             PlayerBooster booster = entry.getValue();
             
             if (booster.isActive()) {
-                plugin.getConfig().set("multipliers.level_groups." + group + ".multiplier", booster.getMultiplier());
-                plugin.getConfig().set("multipliers.level_groups." + group + ".end_time", booster.getEndTime());
+                dataConfig.set("level_groups." + group + ".multiplier", booster.getMultiplier());
+                dataConfig.set("level_groups." + group + ".end_time", booster.getEndTime());
             } else {
-                plugin.getConfig().set("multipliers.level_groups." + group, null);
+                dataConfig.set("level_groups." + group, null);
             }
         }
         
         // 保存全局默认倍率
         if (globalBooster.isActive() && globalBooster.getMultiplier() != 1.0) {
-            plugin.getConfig().set("multipliers.global_default.multiplier", globalBooster.getMultiplier());
-            plugin.getConfig().set("multipliers.global_default.end_time", globalBooster.getEndTime());
+            dataConfig.set("global_default.multiplier", globalBooster.getMultiplier());
+            dataConfig.set("global_default.end_time", globalBooster.getEndTime());
         } else {
-            plugin.getConfig().set("multipliers.global_default", null);
+            dataConfig.set("global_default", null);
         }
-        
-        plugin.saveConfigWithComments();
         
         // 保存到文件
         try {
@@ -542,9 +575,15 @@ public class BoosterManager {
         }
         
         levelGroupBoosters.remove(levelGroup);
-        // 保存到配置文件
-        plugin.getConfig().set("multipliers.level_groups." + levelGroup, null);
-        plugin.saveConfig();
+        // 保存到数据文件而不是配置文件
+        dataConfig.set("level_groups." + levelGroup, null);
+        
+        try {
+            dataConfig.save(dataFile);
+        } catch (IOException e) {
+            LogUtil.error("无法保存等级组倍率数据: " + e.getMessage(), e);
+            return false;
+        }
         
         return true;
     }
