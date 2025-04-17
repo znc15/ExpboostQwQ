@@ -1,6 +1,6 @@
 # ExpboostQwQ
 
-一个强大的经验加成插件，支持玩家个人加成和全服加成，可以设置不同等级组的倍率。
+一个强大的经验加成插件，支持玩家个人加成和全服加成，可以设置不同等级组的倍率，现在支持多重加成累加和保留！
 
 ## 功能特点
 
@@ -24,19 +24,18 @@
 
 ## 命令
 
-- `/expbooster help` - 显示帮助信息
-- `/expbooster player <玩家名> <倍率> <时长> [选项]` - 设置玩家经验加成
+- `/expbooster player <玩家> <倍率> <时长> [选项]` - 设置玩家经验加成
 - `/expbooster server <倍率> <时长> [选项]` - 设置全服经验加成
-- `/expbooster check [玩家名]` - 查看加成状态
-- `/expbooster global <倍率>` - 设置全局默认倍率
+- `/expbooster check [玩家/group <等级组>]` - 查看加成状态
+- `/expbooster global <倍率> <时长>` - 设置全局默认倍率
 - `/expbooster group <等级组> <倍率> <时长>` - 设置等级组倍率
-- `/expbooster groups` - 列出所有等级组及其倍率
+- `/expbooster listgroups` - 列出所有等级组及其倍率
+- `/expbooster list [玩家]` - 列出玩家所有经验加成
+- `/expbooster removebooster <玩家> <ID>` - 移除特定经验加成
 - `/expbooster reload` - 重载插件配置
-- `/expbooster logs <行数>` - 查看最近的日志
-- `/expbooster logs <日期> <行数>` - 查看指定日期的日志
-- `/expbooster logs list` - 列出所有日志文件
-- `/expbooster logs cleanup` - 手动清理过期日志
-- `/expbooster disable player <玩家名>` - 关闭玩家经验加成
+- `/expbooster logs [行数]` - 查看最近日志
+- `/expbooster cleanuplogs` - 手动清理过期日志
+- `/expbooster disable player <玩家>` - 关闭玩家经验加成
 - `/expbooster disable server` - 关闭全服经验加成
 - `/expbooster disable group <等级组>` - 关闭等级组经验加成
 
@@ -45,6 +44,7 @@
 - `-levelGroup=<组名>` - 限制加成只在特定等级组生效
 - `-source=<来源>` - 限制加成只对特定经验来源生效
 - `-silent` - 静默模式，不发送广播消息
+- `-replace` - 替换模式，替换现有加成而不是累加（新增！）
 
 ## 配置文件
 
@@ -141,11 +141,20 @@ language:
 
 ## 权限
 
-- `expboostqwq.command.help` - 允许使用帮助命令
 - `expboostqwq.command.player` - 允许设置玩家经验加成
 - `expboostqwq.command.server` - 允许设置全服经验加成
 - `expboostqwq.command.check` - 允许查看经验加成状态
-- `expboostqwq.admin` - 管理员权限（包含所有权限，包括日志管理）
+- `expboostqwq.command.global` - 允许设置全局默认倍率
+- `expboostqwq.command.group` - 允许设置等级组倍率
+- `expboostqwq.command.list` - 允许查看玩家加成列表
+- `expboostqwq.command.removebooster` - 允许移除特定加成
+- `expboostqwq.command.listgroups` - 允许查看等级组列表
+- `expboostqwq.command.reload` - 允许重载插件
+- `expboostqwq.command.logs` - 允许查看日志
+- `expboostqwq.command.cleanuplogs` - 允许清理日志
+- `expboostqwq.command.language` - 允许设置语言
+- `expboostqwq.command.disable` - 允许禁用加成
+- `expboostqwq.admin` - 管理员权限（包含所有权限）
 
 ## 依赖
 
@@ -175,10 +184,14 @@ language:
 - `/expbooster language player <玩家名> <语言代码>` - 设置玩家的语言（管理员）
 - `/expbooster language server <语言代码>` - 设置服务器默认语言（管理员）
 
+## 支持
+
+如果你在使用过程中遇到任何问题，欢迎提出Issue或加入我们的交流群。
+
 ## 开发信息
 
 - 作者：LittleSheep
-- 版本：1.0.0-SNAPSHOT
+- 版本：1.1.0
 - 许可证：MIT
 
 ## 构建项目

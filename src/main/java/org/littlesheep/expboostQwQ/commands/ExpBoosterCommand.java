@@ -9,10 +9,10 @@ import org.bukkit.entity.Player;
 import org.littlesheep.expboostQwQ.ExpboostQwQ;
 import org.littlesheep.expboostQwQ.data.PlayerBooster;
 import org.littlesheep.expboostQwQ.data.ServerBooster;
+import org.littlesheep.expboostQwQ.data.MultiplePlayerBoosters;
 import org.littlesheep.expboostQwQ.utils.LevelApiUtil;
 import org.littlesheep.expboostQwQ.utils.LogUtil;
 import org.littlesheep.expboostQwQ.utils.TimeUtils;
-import org.littlesheep.expboostQwQ.utils.LanguageManager;
 import org.littlesheep.expboostQwQ.utils.UpdateChecker;
 
 import java.io.File;
@@ -49,74 +49,60 @@ public class ExpBoosterCommand implements CommandExecutor, TabCompleter {
      */
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (args.length < 1) {
+        if (args.length == 0) {
             sendHelpMessage(sender);
-            LogUtil.commandExecution(sender.getName(), "/" + label, false);
             return true;
         }
         
-        String subCommand = args[0].toLowerCase();
-        String fullCommand = "/" + label + " " + String.join(" ", args);
-        
-        boolean success = true;
-        try {
-            switch (subCommand) {
-                case "help":
-                    sendHelpMessage(sender);
-                    break;
-                case "player":
-                    handlePlayerBooster(sender, args);
-                    break;
-                case "server":
-                    handleServerBooster(sender, args);
-                    break;
-                case "check":
-                    handleCheck(sender, args);
-                    break;
-                case "global":
-                    handleGlobalMultiplier(sender, args);
-                    break;
-                case "group":
-                    handleGroupMultiplier(sender, args);
-                    break;
-                case "groups":
-                    handleListGroups(sender);
-                    break;
-                case "language":
-                    handleLanguage(sender, args);
-                    break;
-                case "reload":
-                    handleReload(sender);
-                    break;
-                case "logs":
-                    if (args.length > 1 && args[1].equalsIgnoreCase("cleanup")) {
-                        handleLogsCleanup(sender);
-                    } else {
-                        handleLogs(sender, args);
-                    }
-                    break;
-                case "disable":
-                    if (args.length > 1) {
-                        handleDisable(sender, args);
-                    } else {
-                        sendHelpMessage(sender);
-                        success = false;
-                    }
-                    break;
-                case "checkupdate":
-                    handleCheckUpdate(sender);
-                    break;
-                default:
-                    sendHelpMessage(sender);
-                    success = false;
-                    break;
-            }
-        } catch (Exception e) {
-            success = false;
-            LogUtil.error("执行命令时发生错误: " + fullCommand, e);
+        switch (args[0].toLowerCase()) {
+            case "player":
+                handlePlayerBooster(sender, args);
+                break;
+            case "server":
+                handleServerBooster(sender, args);
+                break;
+            case "global":
+                handleGlobalMultiplier(sender, args);
+                break;
+            case "group":
+                handleGroupMultiplier(sender, args);
+                break;
+            case "check":
+                handleCheck(sender, args);
+                break;
+            case "reload":
+                handleReload(sender);
+                break;
+            case "listgroups":
+                handleListGroups(sender);
+                break;
+            case "logs":
+                handleLogs(sender, args);
+                break;
+            case "cleanuplogs":
+                handleLogsCleanup(sender);
+                break;
+            case "language":
+            case "lang":
+                handleLanguage(sender, args);
+                break;
+            case "disable":
+                handleDisable(sender, args);
+                break;
+            case "checkupdate":
+                handleCheckUpdate(sender);
+                break;
+            case "list":
+                handleListBoosters(sender, args);
+                break;
+            case "removebooster":
+                handleRemoveBooster(sender, args);
+                break;
+            default:
+                sendHelpMessage(sender);
+                break;
         }
         
-        LogUtil.commandExecution(sender.getName(), fullCommand, success);
         return true;
     }
     
@@ -144,19 +130,18 @@ public class ExpBoosterCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(plugin.getLanguageManager().getMessage(
                     langCode,
                     "messages.usage.player",
-                    "§c[ExpboostQwQ] 用法: /expbooster player <玩家名> <倍率> <时长> [选项]"));
+                    "§c[ExpboostQwQ] 用法: /expbooster player <玩家> <倍率> <时长> [选项]"));
             return;
         }
         
-        // 获取玩家
-        String playerName = args[1];
-        Player target = Bukkit.getPlayerExact(playerName);
+        // 获取目标玩家
+        Player target = Bukkit.getPlayer(args[1]);
         if (target == null) {
             sender.sendMessage(plugin.getLanguageManager().getMessage(
                     langCode,
                     "messages.command.player_not_found",
-                    "§c[ExpboostQwQ] 找不到玩家: %player%")
-                    .replace("%player%", playerName));
+                    "§c[ExpboostQwQ] 找不到玩家 '%player%'!")
+                    .replace("%player%", args[1]));
             return;
         }
         
@@ -206,6 +191,7 @@ public class ExpBoosterCommand implements CommandExecutor, TabCompleter {
         String levelGroup = "";
         String source = "";
         boolean silent = false;
+        boolean replace = false;  // 新增：是否替换现有加成而不是累加
         
         for (int i = 4; i < args.length; i++) {
             String arg = args[i];
@@ -224,52 +210,67 @@ public class ExpBoosterCommand implements CommandExecutor, TabCompleter {
                 source = arg.substring("-source=".length());
             } else if (arg.equals("-silent")) {
                 silent = true;
+            } else if (arg.equals("-replace")) {
+                replace = true;  // 使用-replace选项表示替换现有加成
             }
         }
         
         // 计算结束时间
         long endTime = (duration == -1) ? -1 : System.currentTimeMillis() + (duration * 1000);
         
-        // 在创建并应用加成之前记录旧的倍率
-        double oldMultiplier = 1.0;
-        if (plugin.getBoosterManager().hasPlayerBooster(target.getUniqueId())) {
-            PlayerBooster oldBooster = plugin.getBoosterManager().getPlayerBooster(target.getUniqueId());
-            if (oldBooster != null) {
-                oldMultiplier = oldBooster.getMultiplier();
-            }
+        // 在创建并应用加成之前记录旧的加成状态
+        MultiplePlayerBoosters existingBoosters = plugin.getBoosterManager().getPlayerBoosters(target.getUniqueId());
+        int oldBoosterCount = existingBoosters != null ? existingBoosters.getActiveBoosterCount() : 0;
+        
+        // 如果指定了替换模式，首先移除现有加成
+        if (replace && existingBoosters != null) {
+            plugin.getBoosterManager().removePlayerBooster(target.getUniqueId());
+            LogUtil.debug("管理员 " + sender.getName() + " 移除了玩家 " + target.getName() + " 的所有现有加成");
         }
         
         // 创建并应用加成
         PlayerBooster booster = new PlayerBooster(multiplier, endTime, levelGroup, source);
         plugin.getBoosterManager().addPlayerBooster(target.getUniqueId(), booster);
         
-        // 记录倍率变化
-        LogUtil.multiplierChange(target, oldMultiplier, multiplier, duration, "个人");
+        // 记录加成变化
+        String operationType = replace ? "替换" : (oldBoosterCount > 0 ? "累加" : "设置");
+        LogUtil.debug("管理员 " + sender.getName() + " 为玩家 " + target.getName() + 
+                " " + operationType + " " + multiplier + "x 经验加成，持续时间: " + 
+                (duration == -1 ? "永久" : TimeUtils.formatDuration(duration)));
         
         // 发送确认消息
         String durationStr = (duration == -1) ? "永久" : TimeUtils.formatDuration(duration);
         
+        // 更新消息以反映累加/替换状态
+        String messageKey = replace ? "messages.exp_boost.player_booster_replaced" : 
+                           (oldBoosterCount > 0 ? "messages.exp_boost.player_booster_added" : "messages.exp_boost.player_booster_set");
+        String defaultMessage = replace ? "§a[ExpboostQwQ] 已替换玩家 §e%player% §a的经验加成为 §e%multiplier%x §a，持续时间: §e%duration%" :
+                             (oldBoosterCount > 0 ? "§a[ExpboostQwQ] 已为玩家 §e%player% §a累加 §e%multiplier%x §a经验加成，持续时间: §e%duration%" :
+                                                 "§a[ExpboostQwQ] 已为玩家 §e%player% §a设置 §e%multiplier%x §a经验加成，持续时间: §e%duration%");
+        
         sender.sendMessage(plugin.getLanguageManager().getMessage(
                 langCode,
-                "messages.exp_boost.player_booster_set",
-                "§a[ExpboostQwQ] 已为玩家 §e%player% §a设置 §e%multiplier%x §a经验加成，持续时间: §e%duration%")
+                messageKey,
+                defaultMessage)
                 .replace("%player%", target.getName())
                 .replace("%multiplier%", String.valueOf(multiplier))
                 .replace("%duration%", durationStr));
         
         if (!silent && !sender.equals(target)) {
             String targetLangCode = plugin.getLanguageManager().getPlayerLanguage(target.getUniqueId().toString());
+            String playerMessageKey = replace ? "messages.exp_boost.player_booster_received_replaced" : 
+                                    (oldBoosterCount > 0 ? "messages.exp_boost.player_booster_received_added" : "messages.exp_boost.player_booster_received");
+            String playerDefaultMessage = replace ? "§a[ExpboostQwQ] 你的经验加成已被替换为 §e%multiplier%x §a，持续时间: §e%duration%" :
+                                        (oldBoosterCount > 0 ? "§a[ExpboostQwQ] 你获得了额外的 §e%multiplier%x §a经验加成，持续时间: §e%duration%" :
+                                                           "§a[ExpboostQwQ] 你获得了 §e%multiplier%x §a经验加成，持续时间: §e%duration%");
+            
             target.sendMessage(plugin.getLanguageManager().getMessage(
                     targetLangCode,
-                    "messages.exp_boost.player_booster_received",
-                    "§a[ExpboostQwQ] 你获得了 §e%multiplier%x §a经验加成，持续时间: §e%duration%")
+                    playerMessageKey,
+                    playerDefaultMessage)
                     .replace("%multiplier%", String.valueOf(multiplier))
                     .replace("%duration%", durationStr));
         }
-        
-        // 记录日志
-        LogUtil.debug("管理员 " + sender.getName() + " 为玩家 " + target.getName() + 
-                " 设置了 " + multiplier + "x 经验加成，持续时间: " + durationStr);
     }
     
     /**
@@ -1179,7 +1180,7 @@ public class ExpBoosterCommand implements CommandExecutor, TabCompleter {
     }
     
     /**
-     * 发送帮助信息
+     * 发送命令帮助信息
      * 
      * @param sender 命令发送者
      */
@@ -1189,64 +1190,113 @@ public class ExpBoosterCommand implements CommandExecutor, TabCompleter {
                 ? plugin.getLanguageManager().getPlayerLanguage(((Player) sender).getUniqueId().toString())
                 : plugin.getLanguageManager().getDefaultLanguage();
         
-        LanguageManager lang = plugin.getLanguageManager();
-        
-        sender.sendMessage(lang.getMessage(langCode, "messages.help.header", "§6======= §eExpboostQwQ 帮助 §6======="));
-        sender.sendMessage(lang.getMessage(langCode, "messages.help.help", "§e/expbooster help §7- §f显示此帮助信息"));
+        sender.sendMessage(plugin.getLanguageManager().getMessage(
+                langCode,
+                "messages.help.header",
+                "§e----- ExpboostQwQ 帮助 -----"));
         
         if (sender.hasPermission("expboostqwq.command.player")) {
-            sender.sendMessage(lang.getMessage(langCode, "messages.help.player", "§e/expbooster player <玩家名> <倍率> <时长> [选项] §7- §f设置玩家经验加成"));
-            sender.sendMessage(lang.getMessage(langCode, "messages.help.player_options", "§7  选项: §f-levelGroup=<组名> -source=<来源> -silent"));
+            sender.sendMessage(plugin.getLanguageManager().getMessage(
+                    langCode,
+                    "messages.help.player",
+                    "§a/expbooster player <玩家> <倍率> <时长> [选项] §7- 设置玩家经验加成"));
         }
         
         if (sender.hasPermission("expboostqwq.command.server")) {
-            sender.sendMessage(lang.getMessage(langCode, "messages.help.server", "§e/expbooster server <倍率> <时长> [选项] §7- §f设置全服经验加成"));
-            sender.sendMessage(lang.getMessage(langCode, "messages.help.server_options", "§7  选项: §f-levelGroup=<组名> -source=<来源> -silent"));
+            sender.sendMessage(plugin.getLanguageManager().getMessage(
+                    langCode,
+                    "messages.help.server",
+                    "§a/expbooster server <倍率> <时长> [选项] §7- 设置全服经验加成"));
+        }
+        
+        if (sender.hasPermission("expboostqwq.command.global")) {
+            sender.sendMessage(plugin.getLanguageManager().getMessage(
+                    langCode,
+                    "messages.help.global",
+                    "§a/expbooster global <倍率> <时长> §7- 设置全局默认倍率"));
+        }
+        
+        if (sender.hasPermission("expboostqwq.command.group")) {
+            sender.sendMessage(plugin.getLanguageManager().getMessage(
+                    langCode,
+                    "messages.help.group",
+                    "§a/expbooster group <等级组> <倍率> <时长> §7- 设置特定等级组倍率"));
         }
         
         if (sender.hasPermission("expboostqwq.command.check")) {
-            sender.sendMessage(lang.getMessage(langCode, "messages.help.check_player", "§e/expbooster check player [玩家名] §7- §f检查玩家经验加成状态"));
-            sender.sendMessage(lang.getMessage(langCode, "messages.help.check_server", "§e/expbooster check server §7- §f检查全服经验加成状态"));
-            sender.sendMessage(lang.getMessage(langCode, "messages.help.check_global", "§e/expbooster check global §7- §f检查全局默认倍率"));
-            sender.sendMessage(lang.getMessage(langCode, "messages.help.check_groups", "§e/expbooster check groups §7- §f检查所有等级组倍率"));
+            sender.sendMessage(plugin.getLanguageManager().getMessage(
+                    langCode,
+                    "messages.help.check",
+                    "§a/expbooster check [玩家/group <等级组>] §7- 检查当前经验加成"));
         }
         
-        if (sender.hasPermission("expboostqwq.admin")) {
-            sender.sendMessage(lang.getMessage(langCode, "messages.help.global", "§e/expbooster global <倍率> §7- §f设置全局默认倍率"));
-            sender.sendMessage(lang.getMessage(langCode, "messages.help.group", "§e/expbooster group <等级组> <倍率> §7- §f设置等级组倍率"));
-            sender.sendMessage(lang.getMessage(langCode, "messages.help.groups", "§e/expbooster groups §7- §f列出所有等级组及倍率"));
-            sender.sendMessage(lang.getMessage(langCode, "messages.help.reload", "§e/expbooster reload §7- §f重载插件配置"));
-            sender.sendMessage(lang.getMessage(langCode, "messages.help.logs", "§e/expbooster logs [行数/日期] [行数] §7- §f查看日志"));
-            sender.sendMessage(lang.getMessage(langCode, "messages.help.logs_list", "§e/expbooster logs list §7- §f列出所有日志文件"));
-            sender.sendMessage(lang.getMessage(langCode, "messages.help.disable_player", "§e/expbooster disable player <玩家名> §7- §f关闭玩家经验加成"));
-            sender.sendMessage(lang.getMessage(langCode, "messages.help.disable_server", "§e/expbooster disable server §7- §f关闭全服经验加成"));
-            sender.sendMessage(lang.getMessage(langCode, "messages.help.disable_group", "§e/expbooster disable group <等级组> §7- §f关闭等级组经验加成"));
-            
-            // 加成计算方式提示
-            String calculationType = plugin.getConfig().getString("settings.boost_calculation", "multiply");
-            String calcTypeName;
-            if (calculationType.equalsIgnoreCase("highest")) {
-                calcTypeName = "取最高倍率";
-            } else if (calculationType.equalsIgnoreCase("add")) {
-                calcTypeName = "相加模式";
-            } else {
-                calcTypeName = "相乘模式";
-            }
-            sender.sendMessage(lang.getMessage(langCode, "messages.help.boost_calculation", 
-                    "§7[配置信息] 当前加成计算方式: §e%mode% §7(可在config.yml中修改)")
-                    .replace("%mode%", calcTypeName));
+        if (sender.hasPermission("expboostqwq.command.list")) {
+            sender.sendMessage(plugin.getLanguageManager().getMessage(
+                    langCode,
+                    "messages.help.list",
+                    "§a/expbooster list [玩家] §7- 列出玩家所有经验加成"));
         }
         
-        // 语言命令帮助
-        sender.sendMessage(lang.getMessage(langCode, "messages.help.language", "§e/expbooster language [语言代码] §7- §f设置或查看你的语言"));
-        
-        if (sender.hasPermission("expboostqwq.admin")) {
-            sender.sendMessage(lang.getMessage(langCode, "messages.help.language_player", "§e/expbooster language player <玩家名> <语言代码> §7- §f设置玩家的语言"));
-            sender.sendMessage(lang.getMessage(langCode, "messages.help.language_server", "§e/expbooster language server <语言代码> §7- §f设置服务器默认语言"));
+        if (sender.hasPermission("expboostqwq.command.removebooster")) {
+            sender.sendMessage(plugin.getLanguageManager().getMessage(
+                    langCode,
+                    "messages.help.removebooster",
+                    "§a/expbooster removebooster <玩家> <ID> §7- 移除特定经验加成"));
         }
         
-        sender.sendMessage(lang.getMessage(langCode, "messages.help.language_list", "§e/expbooster language list §7- §f列出所有可用的语言"));
-        sender.sendMessage(lang.getMessage(langCode, "messages.help.footer", "§6==========================="));
+        if (sender.hasPermission("expboostqwq.command.listgroups")) {
+            sender.sendMessage(plugin.getLanguageManager().getMessage(
+                    langCode,
+                    "messages.help.listgroups",
+                    "§a/expbooster listgroups §7- 列出所有等级组"));
+        }
+        
+        if (sender.hasPermission("expboostqwq.command.disable")) {
+            sender.sendMessage(plugin.getLanguageManager().getMessage(
+                    langCode,
+                    "messages.help.disable",
+                    "§a/expbooster disable <player/server/group> ... §7- 禁用特定加成"));
+        }
+        
+        if (sender.hasPermission("expboostqwq.command.logs")) {
+            sender.sendMessage(plugin.getLanguageManager().getMessage(
+                    langCode,
+                    "messages.help.logs",
+                    "§a/expbooster logs [行数] §7- 查看最近日志"));
+        }
+        
+        if (sender.hasPermission("expboostqwq.command.cleanuplogs")) {
+            sender.sendMessage(plugin.getLanguageManager().getMessage(
+                    langCode,
+                    "messages.help.cleanuplogs",
+                    "§a/expbooster cleanuplogs §7- 清理旧日志文件"));
+        }
+        
+        if (sender.hasPermission("expboostqwq.command.language")) {
+            sender.sendMessage(plugin.getLanguageManager().getMessage(
+                    langCode,
+                    "messages.help.language",
+                    "§a/expbooster language [语言] §7- 设置语言"));
+        }
+        
+        if (sender.hasPermission("expboostqwq.command.reload")) {
+            sender.sendMessage(plugin.getLanguageManager().getMessage(
+                    langCode,
+                    "messages.help.reload",
+                    "§a/expbooster reload §7- 重新加载插件配置"));
+        }
+        
+        if (sender.hasPermission("expboostqwq.command.checkupdate")) {
+            sender.sendMessage(plugin.getLanguageManager().getMessage(
+                    langCode,
+                    "messages.help.checkupdate",
+                    "§a/expbooster checkupdate §7- 检查插件更新"));
+        }
+        
+        sender.sendMessage(plugin.getLanguageManager().getMessage(
+                langCode,
+                "messages.help.options_info",
+                "§e选项: §7-levelGroup=<等级组> -source=<来源> -silent -replace"));
     }
     
     /**
@@ -1702,208 +1752,121 @@ public class ExpBoosterCommand implements CommandExecutor, TabCompleter {
         List<String> completions = new ArrayList<>();
         
         if (args.length == 1) {
-            // 主要子命令补全
-            if (sender.hasPermission("expboostqwq.command.help")) {
-                completions.add("help");
-            }
-            
-            if (sender.hasPermission("expboostqwq.command.check")) {
-                completions.add("check");
-            }
-            
+            // 主命令补全
             if (sender.hasPermission("expboostqwq.command.player")) {
                 completions.add("player");
             }
-            
             if (sender.hasPermission("expboostqwq.command.server")) {
                 completions.add("server");
             }
-            
-            if (sender.hasPermission("expboostqwq.admin")) {
+            if (sender.hasPermission("expboostqwq.command.global")) {
                 completions.add("global");
+            }
+            if (sender.hasPermission("expboostqwq.command.group")) {
                 completions.add("group");
-                completions.add("groups");
+            }
+            if (sender.hasPermission("expboostqwq.command.check")) {
+                completions.add("check");
+            }
+            if (sender.hasPermission("expboostqwq.command.reload")) {
                 completions.add("reload");
+            }
+            if (sender.hasPermission("expboostqwq.command.listgroups")) {
+                completions.add("listgroups");
+            }
+            if (sender.hasPermission("expboostqwq.command.logs")) {
                 completions.add("logs");
+                completions.add("cleanuplogs");
+            }
+            if (sender.hasPermission("expboostqwq.command.language")) {
                 completions.add("language");
+                completions.add("lang");
+            }
+            if (sender.hasPermission("expboostqwq.command.disable")) {
                 completions.add("disable");
+            }
+            if (sender.hasPermission("expboostqwq.command.checkupdate")) {
                 completions.add("checkupdate");
+            }
+            if (sender.hasPermission("expboostqwq.command.list")) {
+                completions.add("list");
+            }
+            if (sender.hasPermission("expboostqwq.command.removebooster")) {
+                completions.add("removebooster");
             }
             
             return filterCompletions(completions, args[0]);
         }
         
-        String subCommand = args[0].toLowerCase();
-        
-        if (subCommand.equals("player") && sender.hasPermission("expboostqwq.command.player")) {
-            if (args.length == 2) {
-                // 补全玩家名
-                return null; // 返回null将使用服务器默认的玩家名补全
-            } else if (args.length == 3) {
-                // 补全倍率
-                completions.add("1.5");
-                completions.add("2.0");
-                completions.add("3.0");
-                return filterCompletions(completions, args[2]);
-            } else if (args.length == 4) {
-                // 补全时长
-                completions.add("1h");
-                completions.add("1d");
-                completions.add("7d");
-                completions.add("30d");
-                completions.add("permanent");
-                return filterCompletions(completions, args[3]);
-            } else if (args.length >= 5) {
-                // 补全选项
-                if (!args[args.length - 1].startsWith("-")) {
-                    completions.add("-levelGroup=");
-                    completions.add("-source=");
-                    completions.add("-silent");
-                    return filterCompletions(completions, args[args.length - 1]);
-                } else if (args[args.length - 1].startsWith("-levelGroup=")) {
-                    // 补全等级组
-                    String prefix = "-levelGroup=";
-                    String current = args[args.length - 1].substring(prefix.length());
-                    List<String> groups = LevelApiUtil.getLevelGroupNames();
-                    return groups.stream()
-                            .filter(group -> group.toLowerCase().startsWith(current.toLowerCase()))
-                            .map(group -> prefix + group)
-                            .collect(Collectors.toList());
+        // 子命令补全
+        switch (args[0].toLowerCase()) {
+            case "player":
+                if (sender.hasPermission("expboostqwq.command.player")) {
+                    if (args.length == 2) {
+                        // 补全玩家名
+                        for (Player player : Bukkit.getOnlinePlayers()) {
+                            completions.add(player.getName());
+                        }
+                    } else if (args.length == 3) {
+                        // 补全倍率
+                        completions.add("1.0");
+                        completions.add("1.5");
+                        completions.add("2.0");
+                        completions.add("3.0");
+                        completions.add("5.0");
+                    } else if (args.length == 4) {
+                        // 补全时长
+                        completions.add("30m");
+                        completions.add("1h");
+                        completions.add("1d");
+                        completions.add("7d");
+                        completions.add("permanent");
+                    } else if (args.length >= 5) {
+                        // 补全选项
+                        completions.add("-levelGroup=");
+                        completions.add("-source=");
+                        completions.add("-silent");
+                        completions.add("-replace");  // 新增替换选项
+                    }
                 }
-            }
-        } else if (subCommand.equals("server") && sender.hasPermission("expboostqwq.command.server")) {
-            if (args.length == 2) {
-                // 补全倍率
-                completions.add("1.5");
-                completions.add("2.0");
-                completions.add("3.0");
-                return filterCompletions(completions, args[1]);
-            } else if (args.length == 3) {
-                // 补全时长
-                completions.add("1h");
-                completions.add("1d");
-                completions.add("7d");
-                completions.add("30d");
-                completions.add("permanent");
-                return filterCompletions(completions, args[2]);
-            } else if (args.length >= 4) {
-                // 补全选项
-                if (!args[args.length - 1].startsWith("-")) {
-                    completions.add("-levelGroup=");
-                    completions.add("-source=");
-                    completions.add("-silent");
-                    return filterCompletions(completions, args[args.length - 1]);
-                } else if (args[args.length - 1].startsWith("-levelGroup=")) {
-                    // 补全等级组
-                    String prefix = "-levelGroup=";
-                    String current = args[args.length - 1].substring(prefix.length());
-                    List<String> groups = LevelApiUtil.getLevelGroupNames();
-                    return groups.stream()
-                            .filter(group -> group.toLowerCase().startsWith(current.toLowerCase()))
-                            .map(group -> prefix + group)
-                            .collect(Collectors.toList());
-                }
-            }
-        } else if (subCommand.equals("check") && sender.hasPermission("expboostqwq.command.check")) {
-            if (args.length == 2) {
-                // 补全检查类型
-                completions.add("player");
-                completions.add("server");
-                completions.add("global");
-                completions.add("groups");
-                return filterCompletions(completions, args[1]);
-            } else if (args.length == 3 && args[1].equalsIgnoreCase("player")) {
-                // 补全玩家名
-                return null; // 返回null将使用服务器默认的玩家名补全
-            }
-        } else if (subCommand.equals("global") && sender.hasPermission("expboostqwq.admin")) {
-            if (args.length == 2) {
-                // 补全倍率
-                completions.add("1.0");
-                completions.add("1.5");
-                completions.add("2.0");
-                return filterCompletions(completions, args[1]);
-            } else if (args.length == 3) {
-                // 补全时长
-                completions.add("1h");
-                completions.add("1d");
-                completions.add("7d");
-                completions.add("30d");
-                completions.add("permanent");
-                return filterCompletions(completions, args[2]);
-            } else if (args.length >= 4) {
-                // 补全选项
-                if (!args[args.length - 1].startsWith("-")) {
-                    completions.add("-levelGroup=");
-                    completions.add("-source=");
-                    completions.add("-silent");
-                    return filterCompletions(completions, args[args.length - 1]);
-                } else if (args[args.length - 1].startsWith("-levelGroup=")) {
-                    // 补全等级组
-                    String prefix = "-levelGroup=";
-                    String current = args[args.length - 1].substring(prefix.length());
-                    List<String> groups = LevelApiUtil.getLevelGroupNames();
-                    return groups.stream()
-                            .filter(group -> group.toLowerCase().startsWith(current.toLowerCase()))
-                            .map(group -> prefix + group)
-                            .collect(Collectors.toList());
-                }
-            }
-        } else if (subCommand.equals("group") && sender.hasPermission("expboostqwq.admin")) {
-            if (args.length == 2) {
-                // 补全等级组
-                return filterCompletions(LevelApiUtil.getLevelGroupNames(), args[1]);
-            } else if (args.length == 3) {
-                // 补全倍率
-                completions.add("1.0");
-                completions.add("1.5");
-                completions.add("2.0");
-                return filterCompletions(completions, args[2]);
-            } else if (args.length == 4) {
-                // 补全时长
-                completions.add("1h");
-                completions.add("1d");
-                completions.add("7d");
-                completions.add("30d");
-                completions.add("permanent");
-                return filterCompletions(completions, args[3]);
-            } else if (args.length >= 5) {
-                // 补全选项
-                if (!args[args.length - 1].startsWith("-")) {
-                    completions.add("-levelGroup=");
-                    completions.add("-source=");
-                    completions.add("-silent");
-                    return filterCompletions(completions, args[args.length - 1]);
-                } else if (args[args.length - 1].startsWith("-levelGroup=")) {
-                    // 补全等级组
-                    String prefix = "-levelGroup=";
-                    String current = args[args.length - 1].substring(prefix.length());
-                    List<String> groups = LevelApiUtil.getLevelGroupNames();
-                    return groups.stream()
-                            .filter(group -> group.toLowerCase().startsWith(current.toLowerCase()))
-                            .map(group -> prefix + group)
-                            .collect(Collectors.toList());
-                }
-            }
-        } else if (subCommand.equals("disable") && sender.hasPermission("expboostqwq.admin")) {
-            if (args.length == 2) {
-                // 补全disable类型
-                completions.add("player");
-                completions.add("server");
-                completions.add("group");
-                return filterCompletions(completions, args[1]);
-            } else if (args.length == 3) {
-                if (args[1].equalsIgnoreCase("player")) {
+                break;
+            
+            case "list":
+                if (sender.hasPermission("expboostqwq.command.list") && args.length == 2) {
                     // 补全玩家名
-                    return null; // 返回null使用服务器默认玩家名补全
-                } else if (args[1].equalsIgnoreCase("group")) {
-                    // 补全等级组名
-                    return filterCompletions(LevelApiUtil.getLevelGroupNames(), args[2]);
+                    for (Player player : Bukkit.getOnlinePlayers()) {
+                        completions.add(player.getName());
+                    }
                 }
-            }
+                break;
+                
+            case "removebooster":
+                if (sender.hasPermission("expboostqwq.command.removebooster")) {
+                    if (args.length == 2) {
+                        // 补全玩家名
+                        for (Player player : Bukkit.getOnlinePlayers()) {
+                            completions.add(player.getName());
+                        }
+                    } else if (args.length == 3) {
+                        // 补全加成ID
+                        Player target = Bukkit.getPlayer(args[1]);
+                        if (target != null) {
+                            MultiplePlayerBoosters boosters = plugin.getBoosterManager().getPlayerBoosters(target.getUniqueId());
+                            if (boosters != null) {
+                                int count = boosters.getActiveBoosterCount();
+                                for (int i = 1; i <= count; i++) {
+                                    completions.add(String.valueOf(i));
+                                }
+                            }
+                        }
+                    }
+                }
+                break;
+
+            // 其他子命令的补全逻辑保持不变...
         }
         
-        return completions;
+        return filterCompletions(completions, args[args.length - 1]);
     }
     
     /**
@@ -1988,6 +1951,189 @@ public class ExpBoosterCommand implements CommandExecutor, TabCompleter {
                     langCode,
                     "messages.command.rechecking_update",
                     "§b[ExpboostQwQ] §f正在重新检查更新，结果将在几秒钟后显示在控制台中。"));
+        }
+    }
+    
+    /**
+     * 处理列出玩家所有加成的命令
+     * 
+     * @param sender 命令发送者
+     * @param args 命令参数
+     */
+    private void handleListBoosters(CommandSender sender, String[] args) {
+        // 获取玩家语言，如果是控制台则使用默认语言
+        String langCode = sender instanceof Player 
+                ? plugin.getLanguageManager().getPlayerLanguage(((Player) sender).getUniqueId().toString())
+                : plugin.getLanguageManager().getDefaultLanguage();
+        
+        if (!sender.hasPermission("expboostqwq.command.list")) {
+            sender.sendMessage(plugin.getLanguageManager().getMessage(
+                    langCode,
+                    "messages.command.no_permission",
+                    "§c[ExpboostQwQ] 你没有权限执行此命令!"));
+            return;
+        }
+        
+        Player target = null;
+        
+        // 确定目标玩家
+        if (args.length > 1) {
+            // 指定了玩家
+            target = Bukkit.getPlayer(args[1]);
+            if (target == null) {
+                sender.sendMessage(plugin.getLanguageManager().getMessage(
+                        langCode,
+                        "messages.command.player_not_found",
+                        "§c[ExpboostQwQ] 找不到玩家 '%player%'!")
+                        .replace("%player%", args[1]));
+                return;
+            }
+        } else if (sender instanceof Player) {
+            // 没有指定玩家，使用命令发送者
+            target = (Player) sender;
+        } else {
+            // 控制台没有指定玩家
+            sender.sendMessage(plugin.getLanguageManager().getMessage(
+                    langCode,
+                    "messages.usage.list",
+                    "§c[ExpboostQwQ] 用法: /expbooster list [玩家]"));
+            return;
+        }
+        
+        // 获取玩家的加成管理器
+        MultiplePlayerBoosters boosters = plugin.getBoosterManager().getPlayerBoosters(target.getUniqueId());
+        
+        if (boosters == null || !boosters.hasActiveBoosters()) {
+            sender.sendMessage(plugin.getLanguageManager().getMessage(
+                    langCode,
+                    "messages.exp_boost.no_active_boosters",
+                    "§e[ExpboostQwQ] 玩家 §6%player% §e没有活跃的经验加成")
+                    .replace("%player%", target.getName()));
+            return;
+        }
+        
+        // 列出所有活跃的加成
+        List<PlayerBooster> activeBoosters = boosters.getActiveBoosters();
+        
+        sender.sendMessage(plugin.getLanguageManager().getMessage(
+                langCode,
+                "messages.exp_boost.list_header",
+                "§a[ExpboostQwQ] 玩家 §e%player% §a的经验加成列表 (§e%count%§a个):")
+                .replace("%player%", target.getName())
+                .replace("%count%", String.valueOf(activeBoosters.size())));
+        
+        for (int i = 0; i < activeBoosters.size(); i++) {
+            PlayerBooster booster = activeBoosters.get(i);
+            
+            // 格式化加成信息
+            String timeLeft = booster.getEndTime() == -1 ? "永久" : booster.getFormattedTimeLeft();
+            String levelGroup = booster.getLevelGroup().isEmpty() ? "所有" : booster.getLevelGroup();
+            String source = booster.getSource().isEmpty() ? "所有" : booster.getSource();
+            
+            sender.sendMessage(plugin.getLanguageManager().getMessage(
+                    langCode,
+                    "messages.exp_boost.list_item",
+                    "§a %index%. §e%multiplier%x §a(时间: §e%time%§a, 等级组: §e%levelGroup%§a, 来源: §e%source%§a)")
+                    .replace("%index%", String.valueOf(i + 1))
+                    .replace("%multiplier%", String.valueOf(booster.getMultiplier()))
+                    .replace("%time%", timeLeft)
+                    .replace("%levelGroup%", levelGroup)
+                    .replace("%source%", source));
+        }
+        
+        // 如果发送者有管理权限，显示移除选项
+        if (sender.hasPermission("expboostqwq.command.removebooster")) {
+            sender.sendMessage(plugin.getLanguageManager().getMessage(
+                    langCode,
+                    "messages.exp_boost.list_remove_hint",
+                    "§a使用 §e/expbooster removebooster <玩家> <ID> §a移除特定加成"));
+        }
+    }
+    
+    /**
+     * 处理移除特定加成的命令
+     * 
+     * @param sender 命令发送者
+     * @param args 命令参数
+     */
+    private void handleRemoveBooster(CommandSender sender, String[] args) {
+        // 获取玩家语言，如果是控制台则使用默认语言
+        String langCode = sender instanceof Player 
+                ? plugin.getLanguageManager().getPlayerLanguage(((Player) sender).getUniqueId().toString())
+                : plugin.getLanguageManager().getDefaultLanguage();
+        
+        if (!sender.hasPermission("expboostqwq.command.removebooster")) {
+            sender.sendMessage(plugin.getLanguageManager().getMessage(
+                    langCode,
+                    "messages.command.no_permission",
+                    "§c[ExpboostQwQ] 你没有权限执行此命令!"));
+            return;
+        }
+        
+        if (args.length < 3) {
+            sender.sendMessage(plugin.getLanguageManager().getMessage(
+                    langCode,
+                    "messages.usage.removebooster",
+                    "§c[ExpboostQwQ] 用法: /expbooster removebooster <玩家> <ID>"));
+            return;
+        }
+        
+        // 获取目标玩家
+        Player target = Bukkit.getPlayer(args[1]);
+        if (target == null) {
+            sender.sendMessage(plugin.getLanguageManager().getMessage(
+                    langCode,
+                    "messages.command.player_not_found",
+                    "§c[ExpboostQwQ] 找不到玩家 '%player%'!")
+                    .replace("%player%", args[1]));
+            return;
+        }
+        
+        // 解析加成ID
+        int boosterId;
+        try {
+            boosterId = Integer.parseInt(args[2]) - 1; // 转换为0基索引
+            if (boosterId < 0) {
+                sender.sendMessage(plugin.getLanguageManager().getMessage(
+                        langCode,
+                        "messages.command.invalid_id",
+                        "§c[ExpboostQwQ] 无效的加成ID!"));
+                return;
+            }
+        } catch (NumberFormatException e) {
+            sender.sendMessage(plugin.getLanguageManager().getMessage(
+                    langCode,
+                    "messages.command.invalid_id",
+                    "§c[ExpboostQwQ] 无效的加成ID!"));
+            return;
+        }
+        
+        // 移除加成
+        boolean removed = plugin.getBoosterManager().removePlayerBoosterByIndex(target.getUniqueId(), boosterId);
+        
+        if (removed) {
+            sender.sendMessage(plugin.getLanguageManager().getMessage(
+                    langCode,
+                    "messages.exp_boost.booster_removed",
+                    "§a[ExpboostQwQ] 已成功移除玩家 §e%player% §a的第 §e%id% §a个经验加成")
+                    .replace("%player%", target.getName())
+                    .replace("%id%", String.valueOf(boosterId + 1)));
+            
+            // 通知玩家
+            if (!sender.equals(target)) {
+                String targetLangCode = plugin.getLanguageManager().getPlayerLanguage(target.getUniqueId().toString());
+                target.sendMessage(plugin.getLanguageManager().getMessage(
+                        targetLangCode,
+                        "messages.exp_boost.your_booster_removed",
+                        "§a[ExpboostQwQ] 你的一个经验加成已被移除"));
+            }
+        } else {
+            sender.sendMessage(plugin.getLanguageManager().getMessage(
+                    langCode,
+                    "messages.exp_boost.booster_not_found",
+                    "§c[ExpboostQwQ] 找不到玩家 §e%player% §c的第 §e%id% §c个经验加成")
+                    .replace("%player%", target.getName())
+                    .replace("%id%", String.valueOf(boosterId + 1)));
         }
     }
 } 

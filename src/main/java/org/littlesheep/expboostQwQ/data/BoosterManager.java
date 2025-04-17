@@ -11,6 +11,7 @@ import org.littlesheep.expboostQwQ.utils.LevelApiUtil;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -23,7 +24,7 @@ public class BoosterManager {
     
     private final ExpboostQwQ plugin;
     // 使用线程安全的ConcurrentHashMap存储玩家加成数据
-    private final Map<UUID, PlayerBooster> playerBoosters = new ConcurrentHashMap<>();
+    private final Map<UUID, MultiplePlayerBoosters> playerBoosters = new ConcurrentHashMap<>();
     // 全服加成数据
     private ServerBooster serverBooster = null;
     // 全局默认倍率
@@ -57,13 +58,18 @@ public class BoosterManager {
      * @param booster 经验加成数据
      */
     public void addPlayerBooster(UUID uuid, PlayerBooster booster) {
-        playerBoosters.put(uuid, booster);
+        // 获取或创建玩家的多重加成容器
+        MultiplePlayerBoosters multiplePlayerBoosters = playerBoosters.computeIfAbsent(
+                uuid, id -> new MultiplePlayerBoosters(id));
+        
+        // 添加新的加成
+        multiplePlayerBoosters.addBooster(booster);
         saveAll();
         
         // 记录日志
         Player player = Bukkit.getPlayer(uuid);
         if (player != null && plugin.getConfig().getBoolean("settings.log_exp_boost", true)) {
-            LogUtil.playerBooster(player, "设置倍率 " + booster.getMultiplier() + "x，持续时间 " + 
+            LogUtil.playerBooster(player, "添加倍率 " + booster.getMultiplier() + "x，持续时间 " + 
                     (booster.getEndTime() == -1 ? "永久" : booster.getFormattedTimeLeft()));
         }
     }
@@ -77,7 +83,7 @@ public class BoosterManager {
         if (playerBoosters.containsKey(uuid) && plugin.getConfig().getBoolean("settings.log_exp_boost", true)) {
             Player player = Bukkit.getPlayer(uuid);
             if (player != null) {
-                LogUtil.playerBooster(player, "移除经验加成");
+                LogUtil.playerBooster(player, "移除所有经验加成");
             }
         }
         
@@ -86,12 +92,59 @@ public class BoosterManager {
     }
     
     /**
-     * 获取指定玩家的经验加成数据
+     * 移除玩家的特定加成
      * @param uuid 玩家UUID
-     * @return 玩家的经验加成数据，如果不存在则返回null
+     * @param index 加成索引
+     * @return 是否成功移除
+     */
+    public boolean removePlayerBoosterByIndex(UUID uuid, int index) {
+        if (!playerBoosters.containsKey(uuid)) {
+            return false;
+        }
+        
+        MultiplePlayerBoosters boosters = playerBoosters.get(uuid);
+        boolean removed = boosters.removeBooster(index);
+        
+        if (removed) {
+            // 如果没有剩余加成，完全移除
+            if (boosters.getBoosterCount() == 0) {
+                playerBoosters.remove(uuid);
+            }
+            saveAll();
+            
+            // 记录日志
+            if (plugin.getConfig().getBoolean("settings.log_exp_boost", true)) {
+                Player player = Bukkit.getPlayer(uuid);
+                if (player != null) {
+                    LogUtil.playerBooster(player, "移除第 " + (index + 1) + " 个经验加成");
+                }
+            }
+        }
+        
+        return removed;
+    }
+    
+    /**
+     * 获取指定玩家的经验加成管理器
+     * @param uuid 玩家UUID
+     * @return 玩家的经验加成管理器，如果不存在则返回null
+     */
+    public MultiplePlayerBoosters getPlayerBoosters(UUID uuid) {
+        return playerBoosters.get(uuid);
+    }
+    
+    /**
+     * 获取指定玩家的经验加成数据（兼容旧API，返回第一个活跃加成）
+     * @param uuid 玩家UUID
+     * @return 玩家的第一个经验加成数据，如果不存在则返回null
      */
     public PlayerBooster getPlayerBooster(UUID uuid) {
-        return playerBoosters.get(uuid);
+        MultiplePlayerBoosters boosters = playerBoosters.get(uuid);
+        if (boosters != null && boosters.hasActiveBoosters()) {
+            List<PlayerBooster> active = boosters.getActiveBoosters();
+            return active.isEmpty() ? null : active.get(0);
+        }
+        return null;
     }
     
     /**
@@ -100,7 +153,8 @@ public class BoosterManager {
      * @return 如果玩家有未过期的加成则返回true，否则返回false
      */
     public boolean hasPlayerBooster(UUID uuid) {
-        return playerBoosters.containsKey(uuid) && playerBoosters.get(uuid).isActive();
+        MultiplePlayerBoosters boosters = playerBoosters.get(uuid);
+        return boosters != null && boosters.hasActiveBoosters();
     }
     
     /**
@@ -281,13 +335,38 @@ public class BoosterManager {
             }
         }
         
-        // 3. 获取玩家个人加成倍率
+        // 3. 获取玩家个人加成倍率（现在处理多个加成）
         double playerMultiplier = 1.0;
+        double playerMaxMultiplier = 1.0;
+        double playerAddMultiplier = 0.0;
+        
         if (hasPlayerBooster(player.getUniqueId())) {
-            PlayerBooster pb = getPlayerBooster(player.getUniqueId());
-            if (pb.matchesConditions(levelGroup, source)) {
-                playerMultiplier = pb.getMultiplier();
-                LogUtil.debug("应用玩家个人加成倍率: " + playerMultiplier);
+            MultiplePlayerBoosters boosters = getPlayerBoosters(player.getUniqueId());
+            List<PlayerBooster> matchingBoosters = boosters.getMatchingBoosters(levelGroup, source);
+            
+            // 不同玩家加成之间也使用相同的计算规则
+            if (!matchingBoosters.isEmpty()) {
+                if (calculationType.equalsIgnoreCase("highest")) {
+                    // 取最高倍率
+                    for (PlayerBooster pb : matchingBoosters) {
+                        playerMaxMultiplier = Math.max(playerMaxMultiplier, pb.getMultiplier());
+                    }
+                    playerMultiplier = playerMaxMultiplier;
+                    LogUtil.debug("玩家加成计算方式: 取最高倍率 = " + playerMultiplier);
+                } else if (calculationType.equalsIgnoreCase("add")) {
+                    // 相加方式
+                    for (PlayerBooster pb : matchingBoosters) {
+                        playerAddMultiplier += (pb.getMultiplier() - 1.0);
+                    }
+                    playerMultiplier = 1.0 + playerAddMultiplier;
+                    LogUtil.debug("玩家加成计算方式: 相加倍率 = " + playerMultiplier);
+                } else {
+                    // 默认相乘方式
+                    for (PlayerBooster pb : matchingBoosters) {
+                        playerMultiplier *= pb.getMultiplier();
+                    }
+                    LogUtil.debug("玩家加成计算方式: 相乘倍率 = " + playerMultiplier);
+                }
             }
         }
         
@@ -346,16 +425,45 @@ public class BoosterManager {
         
         // 加载玩家加成数据
         if (dataConfig.contains("player_boosters")) {
+            // 旧格式兼容 - 单个加成
             for (String uuidString : dataConfig.getConfigurationSection("player_boosters").getKeys(false)) {
                 UUID uuid = UUID.fromString(uuidString);
-                double playerMultiplier = dataConfig.getDouble("player_boosters." + uuidString + ".multiplier");
-                long playerEndTime = dataConfig.getLong("player_boosters." + uuidString + ".end_time");
-                String levelGroup = dataConfig.getString("player_boosters." + uuidString + ".level_group", "");
-                String source = dataConfig.getString("player_boosters." + uuidString + ".source", "");
                 
-                PlayerBooster booster = new PlayerBooster(playerMultiplier, playerEndTime, levelGroup, source);
-                if (booster.isActive()) {
-                    playerBoosters.put(uuid, booster);
+                // 检查是否是新格式（多个加成）
+                if (dataConfig.contains("player_boosters." + uuidString + ".boosters")) {
+                    // 新格式 - 多个加成
+                    MultiplePlayerBoosters multipleBoosters = new MultiplePlayerBoosters(uuid);
+                    
+                    for (String index : dataConfig.getConfigurationSection("player_boosters." + uuidString + ".boosters").getKeys(false)) {
+                        String path = "player_boosters." + uuidString + ".boosters." + index + ".";
+                        double boosterMultiplier = dataConfig.getDouble(path + "multiplier");
+                        long boosterEndTime = dataConfig.getLong(path + "end_time");
+                        String levelGroup = dataConfig.getString(path + "level_group", "");
+                        String source = dataConfig.getString(path + "source", "");
+                        
+                        PlayerBooster booster = new PlayerBooster(boosterMultiplier, boosterEndTime, levelGroup, source);
+                        if (booster.isActive()) {
+                            multipleBoosters.addBooster(booster);
+                        }
+                    }
+                    
+                    if (multipleBoosters.hasActiveBoosters()) {
+                        playerBoosters.put(uuid, multipleBoosters);
+                    }
+                } else {
+                    // 旧格式 - 单个加成
+                    String path = "player_boosters." + uuidString;
+                    double boosterMultiplier = dataConfig.getDouble(path + ".multiplier");
+                    long boosterEndTime = dataConfig.getLong(path + ".end_time");
+                    String levelGroup = dataConfig.getString(path + ".level_group", "");
+                    String source = dataConfig.getString(path + ".source", "");
+                    
+                    PlayerBooster booster = new PlayerBooster(boosterMultiplier, boosterEndTime, levelGroup, source);
+                    if (booster.isActive()) {
+                        MultiplePlayerBoosters multipleBoosters = new MultiplePlayerBoosters(uuid);
+                        multipleBoosters.addBooster(booster);
+                        playerBoosters.put(uuid, multipleBoosters);
+                    }
                 }
             }
         }
@@ -400,7 +508,12 @@ public class BoosterManager {
             }
         }
         
-        LogUtil.info("已加载 " + playerBoosters.size() + " 个玩家加成数据和 " + 
+        int totalBoosters = 0;
+        for (MultiplePlayerBoosters boosters : playerBoosters.values()) {
+            totalBoosters += boosters.getActiveBoosterCount();
+        }
+        
+        LogUtil.info("已加载 " + totalBoosters + " 个玩家加成数据和 " + 
                 (serverBooster != null ? "1" : "0") + " 个全服加成数据");
     }
     
@@ -411,16 +524,23 @@ public class BoosterManager {
         // 保存玩家加成数据
         dataConfig.set("player_boosters", null);  // 清除旧数据
         
-        for (Map.Entry<UUID, PlayerBooster> entry : playerBoosters.entrySet()) {
+        for (Map.Entry<UUID, MultiplePlayerBoosters> entry : playerBoosters.entrySet()) {
             UUID uuid = entry.getKey();
-            PlayerBooster booster = entry.getValue();
+            MultiplePlayerBoosters multipleBoosters = entry.getValue();
+            List<PlayerBooster> boosters = multipleBoosters.getActiveBoosters();
             
-            if (booster.isActive()) {  // 只保存活跃的加成
-                String path = "player_boosters." + uuid;
-                dataConfig.set(path + ".multiplier", booster.getMultiplier());
-                dataConfig.set(path + ".end_time", booster.getEndTime());
-                dataConfig.set(path + ".level_group", booster.getLevelGroup());
-                dataConfig.set(path + ".source", booster.getSource());
+            if (!boosters.isEmpty()) {
+                String basePath = "player_boosters." + uuid + ".boosters";
+                
+                for (int i = 0; i < boosters.size(); i++) {
+                    PlayerBooster booster = boosters.get(i);
+                    String path = basePath + "." + i;
+                    
+                    dataConfig.set(path + ".multiplier", booster.getMultiplier());
+                    dataConfig.set(path + ".end_time", booster.getEndTime());
+                    dataConfig.set(path + ".level_group", booster.getLevelGroup());
+                    dataConfig.set(path + ".source", booster.getSource());
+                }
             }
         }
         
@@ -448,7 +568,7 @@ public class BoosterManager {
         }
         
         // 保存全局默认倍率
-        if (globalBooster.isActive() && globalBooster.getMultiplier() != 1.0) {
+        if (globalBooster.isActive()) {
             dataConfig.set("global_default.multiplier", globalBooster.getMultiplier());
             dataConfig.set("global_default.end_time", globalBooster.getEndTime());
         } else {
@@ -459,32 +579,37 @@ public class BoosterManager {
         try {
             dataConfig.save(dataFile);
         } catch (IOException e) {
-            LogUtil.error("无法保存加成数据: " + e.getMessage(), e);
+            LogUtil.error("保存加成数据时出错: " + e.getMessage(), e);
         }
     }
     
     /**
-     * 启动定期检查过期加成的任务
-     * 每分钟运行一次，移除过期的加成并保存数据
+     * 启动定时任务，用于检查过期的加成
      */
     private void startExpirationTask() {
-        // 每分钟检查一次过期的加成
-        Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, () -> {
+        // 定时检查过期的加成（每分钟）
+        Bukkit.getScheduler().runTaskTimer(plugin, () -> {
             boolean changed = false;
             
             // 检查玩家加成
             for (UUID uuid : new HashMap<>(playerBoosters).keySet()) {
-                PlayerBooster booster = playerBoosters.get(uuid);
-                if (!booster.isActive()) {
-                    playerBoosters.remove(uuid);
+                MultiplePlayerBoosters boosters = playerBoosters.get(uuid);
+                boolean hasExpired = boosters.cleanupExpiredBoosters();
+                
+                if (hasExpired) {
                     changed = true;
                     
                     // 记录日志
                     if (plugin.getConfig().getBoolean("settings.log_exp_boost", true)) {
                         Player player = Bukkit.getPlayer(uuid);
                         if (player != null) {
-                            LogUtil.playerBooster(player, "加成已过期并自动移除");
+                            LogUtil.playerBooster(player, "部分加成已过期并自动移除");
                         }
+                    }
+                    
+                    // 如果没有剩余加成，移除整个条目
+                    if (!boosters.hasActiveBoosters()) {
+                        playerBoosters.remove(uuid);
                     }
                 }
             }
@@ -515,7 +640,7 @@ public class BoosterManager {
             }
             
             // 检查全局默认倍率
-            if (!globalBooster.isActive() && globalBooster.getMultiplier() != 1.0) {
+            if (globalBooster != null && !globalBooster.isActive()) {
                 globalBooster = new PlayerBooster(1.0, -1, "", "");
                 changed = true;
                 
@@ -525,11 +650,11 @@ public class BoosterManager {
                 }
             }
             
-            // 如果有变更，保存数据
+            // 如果有任何更改，保存数据
             if (changed) {
                 saveAll();
             }
-        }, 1200L, 1200L);  // 每分钟运行一次
+        }, 20 * 60, 20 * 60); // 每分钟检查一次（20 ticks * 60 = 1分钟）
     }
     
     /**
