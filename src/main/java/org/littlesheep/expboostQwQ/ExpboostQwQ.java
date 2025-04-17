@@ -11,6 +11,9 @@ import org.littlesheep.expboostQwQ.utils.LanguageManager;
 import org.littlesheep.expboostQwQ.utils.LogUtil;
 import org.littlesheep.expboostQwQ.utils.LevelApiUtil;
 import org.littlesheep.expboostQwQ.utils.UpdateChecker;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
+import java.io.File;
 
 /**
  * ExpboostQwQ 插件主类
@@ -151,7 +154,20 @@ public final class ExpboostQwQ extends JavaPlugin {
      * 重载插件配置
      */
     public void reload() {
-        reloadConfig();
+        // 使用YamlConfiguration从文件加载配置而不是使用reloadConfig()
+        File configFile = new File(getDataFolder(), "config.yml");
+        if (configFile.exists()) {
+            try {
+                FileConfiguration newConfig = YamlConfiguration.loadConfiguration(configFile);
+                for (String key : newConfig.getKeys(true)) {
+                    getConfig().set(key, newConfig.get(key));
+                }
+                LogUtil.debug("从文件重新加载了配置");
+            } catch (Exception e) {
+                LogUtil.error("加载配置文件失败", e);
+            }
+        }
+        
         languageManager.reload();
         boosterManager.loadData();
         LogUtil.info("插件配置已重载！");
