@@ -433,11 +433,91 @@ public class ExpBoosterCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(plugin.getLanguageManager().getMessage(
                     langCode,
                     "messages.usage.check",
-                    "§c[ExpboostQwQ] 用法: /expbooster check [玩家名]"));
+                    "§c[ExpboostQwQ] 用法: /expbooster check [玩家/group <等级组>]"));
             return;
         }
         
         String targetName = args[1];
+        
+        // 处理特殊关键字
+        if (targetName.equalsIgnoreCase("server")) {
+            // 检查全服加成
+            ServerBooster serverBooster = plugin.getBoosterManager().getServerBooster();
+            
+            if (serverBooster != null && serverBooster.isActive()) {
+                String endTimeStr = serverBooster.getEndTime() == -1 ? "永久" : 
+                        TimeUtils.formatDuration((serverBooster.getEndTime() - System.currentTimeMillis()) / 1000);
+                
+                sender.sendMessage(plugin.getLanguageManager().getMessage(
+                        langCode,
+                        "messages.exp_boost.check_server",
+                        "§a[ExpboostQwQ] 全服经验加成: §e%multiplier%x§a, 剩余时间: §e%time%")
+                        .replace("%multiplier%", String.valueOf(serverBooster.getMultiplier()))
+                        .replace("%time%", endTimeStr));
+                
+                if (!serverBooster.getLevelGroup().isEmpty()) {
+                    sender.sendMessage(plugin.getLanguageManager().getMessage(
+                            langCode,
+                            "messages.exp_boost.check_level_group",
+                            "§a[ExpboostQwQ] 等级组: §e%group%")
+                            .replace("%group%", serverBooster.getLevelGroup()));
+                }
+                
+                if (!serverBooster.getSource().isEmpty()) {
+                    sender.sendMessage(plugin.getLanguageManager().getMessage(
+                            langCode,
+                            "messages.exp_boost.check_source",
+                            "§a[ExpboostQwQ] 来源: §e%source%")
+                            .replace("%source%", serverBooster.getSource()));
+                }
+            } else {
+                sender.sendMessage(plugin.getLanguageManager().getMessage(
+                        langCode,
+                        "messages.exp_boost.no_server_booster",
+                        "§a[ExpboostQwQ] 当前没有全服经验加成"));
+            }
+            return;
+        } else if (targetName.equalsIgnoreCase("group") && args.length > 2) {
+            // 检查等级组加成
+            String groupName = args[2];
+            PlayerBooster groupBooster = plugin.getBoosterManager().getLevelGroupBooster(groupName);
+            
+            if (groupBooster != null && groupBooster.isActive()) {
+                String endTimeStr = groupBooster.getEndTime() == -1 ? "永久" : 
+                        TimeUtils.formatDuration((groupBooster.getEndTime() - System.currentTimeMillis()) / 1000);
+                
+                sender.sendMessage(plugin.getLanguageManager().getMessage(
+                        langCode,
+                        "messages.exp_boost.check_level_group_multiplier",
+                        "§a[ExpboostQwQ] 等级组 §e%group% §a的倍率: §e%multiplier%x")
+                        .replace("%group%", groupName)
+                        .replace("%multiplier%", String.valueOf(groupBooster.getMultiplier())));
+                
+                sender.sendMessage(plugin.getLanguageManager().getMessage(
+                        langCode,
+                        "messages.exp_boost.booster_detail_duration",
+                        "§7- §f剩余时间: §e%duration%")
+                        .replace("%duration%", endTimeStr));
+            } else {
+                sender.sendMessage(plugin.getLanguageManager().getMessage(
+                        langCode,
+                        "messages.exp_boost.no_group_booster",
+                        "§a[ExpboostQwQ] 等级组 §e%group% §a当前没有特定经验加成")
+                        .replace("%group%", groupName));
+            }
+            return;
+        } else if (targetName.equalsIgnoreCase("global")) {
+            // 检查全局默认倍率
+            double globalMultiplier = plugin.getBoosterManager().getGlobalDefaultMultiplier();
+            sender.sendMessage(plugin.getLanguageManager().getMessage(
+                    langCode,
+                    "messages.exp_boost.check_global_multiplier",
+                    "§a[ExpboostQwQ] 全局默认倍率: §e%multiplier%x")
+                    .replace("%multiplier%", String.valueOf(globalMultiplier)));
+            return;
+        }
+        
+        // 如果不是特殊关键字，尝试作为玩家名处理
         Player target = Bukkit.getPlayer(targetName);
         
         if (target == null) {
@@ -530,16 +610,44 @@ public class ExpBoosterCommand implements CommandExecutor, TabCompleter {
         // 如果插件支持检测玩家当前的等级组，可以在这里获取
         // 例如: levelGroup = LevelApiUtil.getPlayerLevelGroup(target);
         
-        if (!levelGroup.isEmpty() && plugin.getBoosterManager().hasLevelGroupBooster(levelGroup)) {
-            globalOrGroupMultiplier = plugin.getBoosterManager().getLevelGroupMultiplier(levelGroup);
-            sender.sendMessage(plugin.getLanguageManager().getMessage(
-                    langCode,
-                    "messages.exp_boost.check_level_group_multiplier",
-                    "§a[ExpboostQwQ] 等级组 §e%group% §a的倍率: §e%multiplier%x")
-                    .replace("%group%", levelGroup)
-                    .replace("%multiplier%", String.valueOf(globalOrGroupMultiplier)));
+        if (LevelApiUtil.isLevelGroupsEnabled()) {
+            levelGroup = LevelApiUtil.getPlayerLevelGroup(target);
+            // 如果找到了玩家的等级组，获取该等级组的倍率
+            if (!levelGroup.isEmpty()) {
+                PlayerBooster groupBooster = plugin.getBoosterManager().getLevelGroupBooster(levelGroup);
+                if (groupBooster != null && groupBooster.isActive()) {
+                    globalOrGroupMultiplier = groupBooster.getMultiplier();
+                    
+                    sender.sendMessage(plugin.getLanguageManager().getMessage(
+                            langCode,
+                            "messages.exp_boost.check_level_group_multiplier",
+                            "§a[ExpboostQwQ] 等级组 §e%group% §a的倍率: §e%multiplier%x")
+                            .replace("%group%", levelGroup)
+                            .replace("%multiplier%", String.valueOf(globalOrGroupMultiplier)));
+                } else {
+                    // 如果玩家的等级组没有特定倍率，使用全局默认倍率
+                    globalOrGroupMultiplier = plugin.getBoosterManager().getGlobalDefaultMultiplier();
+                    
+                    sender.sendMessage(plugin.getLanguageManager().getMessage(
+                            langCode,
+                            "messages.exp_boost.check_global_multiplier",
+                            "§a[ExpboostQwQ] 全局默认倍率: §e%multiplier%x")
+                            .replace("%multiplier%", String.valueOf(globalOrGroupMultiplier)));
+                }
+            } else {
+                // 如果没有找到玩家的等级组，使用全局默认倍率
+                globalOrGroupMultiplier = plugin.getBoosterManager().getGlobalDefaultMultiplier();
+                
+                sender.sendMessage(plugin.getLanguageManager().getMessage(
+                        langCode,
+                        "messages.exp_boost.check_global_multiplier",
+                        "§a[ExpboostQwQ] 全局默认倍率: §e%multiplier%x")
+                        .replace("%multiplier%", String.valueOf(globalOrGroupMultiplier)));
+            }
         } else {
+            // 如果等级组功能未启用，显示全局默认倍率
             globalOrGroupMultiplier = plugin.getBoosterManager().getGlobalDefaultMultiplier();
+            
             sender.sendMessage(plugin.getLanguageManager().getMessage(
                     langCode,
                     "messages.exp_boost.check_global_multiplier",
@@ -547,36 +655,22 @@ public class ExpBoosterCommand implements CommandExecutor, TabCompleter {
                     .replace("%multiplier%", String.valueOf(globalOrGroupMultiplier)));
         }
         
-        // 显示加成计算方式
+        // 计算并显示总倍率
+        double totalMultiplier = 1.0;
+        double playerMultiplier = booster != null && booster.isActive() ? booster.getMultiplier() : 1.0;
+        double serverMultiplier = serverBooster != null && serverBooster.isActive() ? serverBooster.getMultiplier() : 1.0;
+        
         String calculationType = plugin.getConfig().getString("settings.boost_calculation", "multiply");
-        String calcTypeName;
-        
-        if (calculationType.equalsIgnoreCase("highest")) {
-            calcTypeName = "取最高倍率";
-        } else if (calculationType.equalsIgnoreCase("add")) {
-            calcTypeName = "相加模式";
-        } else {
-            calcTypeName = "相乘模式";
-        }
-        
         sender.sendMessage(plugin.getLanguageManager().getMessage(
                 langCode,
                 "messages.exp_boost.check_calculation_type",
                 "§a[ExpboostQwQ] 加成计算方式: §e%type%")
-                .replace("%type%", calcTypeName));
+                .replace("%type%", calculationType));
         
-        // 显示总倍率
-        Player targetPlayer = Bukkit.getPlayer(targetUUID);
-        if (targetPlayer != null) {
-            // 获取各个倍率
-            double playerMultiplier = (booster != null && booster.isActive()) ? booster.getMultiplier() : 1.0;
-            double serverMultiplier = (serverBooster != null && serverBooster.isActive()) ? serverBooster.getMultiplier() : 1.0;
-            
-            // 根据不同计算方式显示倍率计算过程
-            double totalMultiplier = plugin.getBoosterManager().getEffectiveMultiplier(targetPlayer, "", "");
-            
-            if (calculationType.equalsIgnoreCase("highest")) {
-                // 取最高倍率
+        // 根据计算方式计算总倍率
+        switch (calculationType.toLowerCase()) {
+            case "highest":
+                totalMultiplier = Math.max(Math.max(globalOrGroupMultiplier, serverMultiplier), playerMultiplier);
                 sender.sendMessage(plugin.getLanguageManager().getMessage(
                         langCode,
                         "messages.exp_boost.total_multiplier_highest",
@@ -590,11 +684,10 @@ public class ExpBoosterCommand implements CommandExecutor, TabCompleter {
                         "messages.exp_boost.total_multiplier_calculation",
                         "§a[ExpboostQwQ] 计算方式: §f取最高 = §e%multiplier%x")
                         .replace("%multiplier%", String.valueOf(totalMultiplier)));
+                break;
                 
-            } else if (calculationType.equalsIgnoreCase("add")) {
-                // 相加模式
-                double addResult = 1.0 + (globalOrGroupMultiplier - 1.0) + (serverMultiplier - 1.0) + (playerMultiplier - 1.0);
-                
+            case "add":
+                totalMultiplier = 1.0 + (globalOrGroupMultiplier - 1.0) + (serverMultiplier - 1.0) + (playerMultiplier - 1.0);
                 sender.sendMessage(plugin.getLanguageManager().getMessage(
                         langCode,
                         "messages.exp_boost.total_multiplier_add",
@@ -602,10 +695,12 @@ public class ExpBoosterCommand implements CommandExecutor, TabCompleter {
                         .replace("%global%", String.valueOf(globalOrGroupMultiplier))
                         .replace("%server%", String.valueOf(serverMultiplier))
                         .replace("%player%", String.valueOf(playerMultiplier))
-                        .replace("%multiplier%", String.valueOf(addResult)));
+                        .replace("%multiplier%", String.valueOf(totalMultiplier)));
+                break;
                 
-            } else {
-                // 相乘模式
+            case "multiply":
+            default:
+                totalMultiplier = globalOrGroupMultiplier * serverMultiplier * playerMultiplier;
                 sender.sendMessage(plugin.getLanguageManager().getMessage(
                         langCode,
                         "messages.exp_boost.total_multiplier_multiply",
@@ -614,14 +709,14 @@ public class ExpBoosterCommand implements CommandExecutor, TabCompleter {
                         .replace("%server%", String.valueOf(serverMultiplier))
                         .replace("%player%", String.valueOf(playerMultiplier))
                         .replace("%multiplier%", String.valueOf(totalMultiplier)));
-            }
-            
-            sender.sendMessage(plugin.getLanguageManager().getMessage(
-                    langCode,
-                    "messages.exp_boost.total_multiplier",
-                    "§a[ExpboostQwQ] 总经验倍率: §e%multiplier%x")
-                    .replace("%multiplier%", String.valueOf(totalMultiplier)));
+                break;
         }
+        
+        sender.sendMessage(plugin.getLanguageManager().getMessage(
+                langCode,
+                "messages.exp_boost.total_multiplier",
+                "§a[ExpboostQwQ] 总经验倍率: §e%multiplier%x")
+                .replace("%multiplier%", String.valueOf(totalMultiplier)));
     }
     
     /**

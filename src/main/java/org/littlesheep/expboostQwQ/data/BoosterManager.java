@@ -712,4 +712,17 @@ public class BoosterManager {
         
         return true;
     }
+    
+    /**
+     * 获取特定等级组的加成器
+     * @param levelGroup 等级组名称
+     * @return 等级组加成器对象，如果不存在则返回null
+     */
+    public PlayerBooster getLevelGroupBooster(String levelGroup) {
+        PlayerBooster booster = levelGroupBoosters.get(levelGroup);
+        if (booster != null && booster.isActive()) {
+            return booster;
+        }
+        return null;
+    }
 } 

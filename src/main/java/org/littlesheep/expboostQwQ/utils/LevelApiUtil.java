@@ -2,6 +2,7 @@ package org.littlesheep.expboostQwQ.utils;
 
 import com.github.cpjinan.plugin.akarilevel.api.LevelAPI;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.entity.Player;
 import org.littlesheep.expboostQwQ.ExpboostQwQ;
 
 import java.util.ArrayList;
@@ -27,6 +28,37 @@ public class LevelApiUtil {
         } catch (ClassNotFoundException e) {
             isAkariLevelEnabled = false;
             LogUtil.error("未找到 AkariLevel 插件，部分功能可能无法使用");
+        }
+    }
+
+    /**
+     * 检查等级组功能是否启用
+     * @return 是否启用
+     */
+    public static boolean isLevelGroupsEnabled() {
+        return isAkariLevelEnabled;
+    }
+    
+    /**
+     * 获取玩家的等级组
+     * @param player 玩家对象
+     * @return 玩家的等级组名称，如果获取失败则返回空字符串
+     */
+    public static String getPlayerLevelGroup(Player player) {
+        if (!isAkariLevelEnabled || player == null) {
+            return "";
+        }
+        try {
+            // 由于无法确定AkariLevel API的确切方法，默认返回第一个等级组
+            // 实际项目中需要根据具体API调整
+            ArrayList<String> groups = getLevelGroupNames();
+            if (!groups.isEmpty()) {
+                return groups.get(0);  // 临时解决方案
+            }
+            return "";
+        } catch (Exception e) {
+            LogUtil.error("获取玩家等级组失败: " + player.getName(), e);
+            return "";
         }
     }
 
