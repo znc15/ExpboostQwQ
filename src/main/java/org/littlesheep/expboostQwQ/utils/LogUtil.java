@@ -57,9 +57,11 @@ public class LogUtil {
                 if (logFile.createNewFile()) {
                     debug("创建日志文件成功: " + logFile.getAbsolutePath());
                     
-                    // 写入初始内容确保文件不为空
-                    try (FileWriter writer = new FileWriter(logFile)) {
+                    // 写入初始内容确保文件不为空（使用UTF-8编码）
+                    try (java.io.OutputStreamWriter writer = new java.io.OutputStreamWriter(
+                            new java.io.FileOutputStream(logFile), StandardCharsets.UTF_8)) {
                         writer.write(dateFormat.format(new Date()) + " [INFO] 日志系统初始化\n");
+                        writer.flush();
                     }
                 } else {
                     logger.severe("无法创建日志文件，尽管调用了createNewFile方法");
@@ -318,11 +320,19 @@ public class LogUtil {
             return;
         }
         
-        FileWriter writer = null;
+        // 使用 OutputStreamWriter 并指定编码，而不是 FileWriter
+        java.io.OutputStreamWriter writer = null;
         try {
-            writer = new FileWriter(logFile, true);
+            // 使用 UTF-8 编码写入文件
+            writer = new java.io.OutputStreamWriter(
+                new java.io.FileOutputStream(logFile, true), StandardCharsets.UTF_8);
+            
             writer.write(dateFormat.format(new Date()) + " " + message + "\n");
             writer.flush();
+            
+            if (debugMode) {
+                logger.fine("成功写入日志: " + message);
+            }
         } catch (IOException e) {
             logger.severe("写入日志文件失败: " + e.getMessage());
         } finally {
