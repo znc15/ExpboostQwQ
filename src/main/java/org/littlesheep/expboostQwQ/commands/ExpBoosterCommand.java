@@ -227,6 +227,47 @@ public class ExpBoosterCommand implements CommandExecutor, TabCompleter {
             plugin.getBoosterManager().removePlayerBooster(target.getUniqueId());
             LogUtil.debug("管理员 " + sender.getName() + " 移除了玩家 " + target.getName() + " 的所有现有加成");
         }
+        // 检查是否存在相同倍率的加成，如果有则累加时间
+        else if (!replace && existingBoosters != null) {
+            List<PlayerBooster> playerBoosters = existingBoosters.getAllBoosters();
+            for (int i = 0; i < playerBoosters.size(); i++) {
+                PlayerBooster oldBooster = playerBoosters.get(i);
+                // 如果找到相同倍率的加成
+                if (Math.abs(oldBooster.getMultiplier() - multiplier) < 0.0001 && oldBooster.isActive()) {
+                    // 如果旧加成是永久的，新加成也设为永久
+                    if (oldBooster.getEndTime() == -1 || endTime == -1) {
+                        endTime = -1;
+                    } else {
+                        // 否则累加剩余时间
+                        long remainingTime = oldBooster.getEndTime() - System.currentTimeMillis();
+                        if (remainingTime > 0) {
+                            endTime = System.currentTimeMillis() + remainingTime + (duration * 1000);
+                        }
+                    }
+                    
+                    // 保留原始等级组和来源设置，如果新设置为空
+                    if (levelGroup.isEmpty() && !oldBooster.getLevelGroup().isEmpty()) {
+                        levelGroup = oldBooster.getLevelGroup();
+                    }
+                    if (source.isEmpty() && !oldBooster.getSource().isEmpty()) {
+                        source = oldBooster.getSource();
+                    }
+                    
+                    // 记录日志
+                    LogUtil.debug("检测到玩家 " + target.getName() + " 的相同倍率(" + multiplier + "x)加成，累加时间");
+                    
+                    // 从玩家加成列表中移除旧的加成
+                    existingBoosters.removeBooster(i);
+                    
+                    // 修改显示的持续时间文本，以反映累加
+                    if (endTime != -1) {
+                        duration = (endTime - System.currentTimeMillis()) / 1000;
+                    }
+                    
+                    break;  // 找到一个匹配的加成就停止循环
+                }
+            }
+        }
         
         // 创建并应用加成
         PlayerBooster booster = new PlayerBooster(multiplier, endTime, levelGroup, source);
@@ -376,6 +417,36 @@ public class ExpBoosterCommand implements CommandExecutor, TabCompleter {
         ServerBooster oldBooster = plugin.getBoosterManager().getServerBooster();
         if (oldBooster != null) {
             oldMultiplier = oldBooster.getMultiplier();
+            
+            // 如果存在相同倍率的加成，累加时间而不是替换
+            if (Math.abs(oldBooster.getMultiplier() - multiplier) < 0.0001 && oldBooster.isActive()) {
+                // 如果旧加成是永久的，新加成也设为永久
+                if (oldBooster.getEndTime() == -1 || endTime == -1) {
+                    endTime = -1;
+                } else {
+                    // 否则累加剩余时间
+                    long remainingTime = oldBooster.getEndTime() - System.currentTimeMillis();
+                    if (remainingTime > 0) {
+                        endTime = System.currentTimeMillis() + remainingTime + (duration * 1000);
+                    }
+                }
+                
+                // 保留原始等级组和来源设置，如果新设置为空
+                if (levelGroup.isEmpty() && !oldBooster.getLevelGroup().isEmpty()) {
+                    levelGroup = oldBooster.getLevelGroup();
+                }
+                if (source.isEmpty() && !oldBooster.getSource().isEmpty()) {
+                    source = oldBooster.getSource();
+                }
+                
+                // 记录日志
+                LogUtil.debug("检测到相同倍率(" + multiplier + "x)的全服加成，累加时间");
+                
+                // 修改显示的持续时间文本，以反映累加
+                if (endTime != -1) {
+                    duration = (endTime - System.currentTimeMillis()) / 1000;
+                }
+            }
         }
         
         // 创建并应用加成
@@ -814,6 +885,35 @@ public class ExpBoosterCommand implements CommandExecutor, TabCompleter {
             }
         }
         
+        // 计算结束时间
+        long endTime = (duration == -1) ? -1 : System.currentTimeMillis() + (duration * 1000);
+        
+        // 检查当前全局倍率
+        PlayerBooster currentGlobalBooster = plugin.getBoosterManager().getGlobalBooster();
+        double currentMultiplier = plugin.getBoosterManager().getGlobalDefaultMultiplier();
+        
+        // 如果存在相同倍率的全局加成，累加时间而不是替换
+        if (Math.abs(currentMultiplier - multiplier) < 0.0001 && currentGlobalBooster.isActive()) {
+            // 如果现有加成是永久的，新加成也设为永久
+            if (currentGlobalBooster.getEndTime() == -1 || endTime == -1) {
+                endTime = -1;
+            } else {
+                // 否则累加剩余时间
+                long remainingTime = currentGlobalBooster.getEndTime() - System.currentTimeMillis();
+                if (remainingTime > 0) {
+                    endTime = System.currentTimeMillis() + remainingTime + (duration * 1000);
+                }
+            }
+            
+            // 记录日志
+            LogUtil.debug("检测到相同倍率(" + multiplier + "x)的全局默认倍率，累加时间");
+            
+            // 修改显示的持续时间文本，以反映累加
+            if (endTime != -1) {
+                duration = (endTime - System.currentTimeMillis()) / 1000;
+            }
+        }
+        
         // 设置全局默认倍率
         plugin.getBoosterManager().setGlobalDefaultMultiplier(multiplier, duration);
         
@@ -976,8 +1076,39 @@ public class ExpBoosterCommand implements CommandExecutor, TabCompleter {
             }
         }
         
+        // 计算结束时间
+        long endTime = (duration == -1) ? -1 : System.currentTimeMillis() + (duration * 1000);
+        
+        // 检查当前组倍率
+        PlayerBooster currentLevelGroupBooster = plugin.getBoosterManager().getLevelGroupBooster(levelGroup);
+        if (currentLevelGroupBooster != null && currentLevelGroupBooster.isActive()) {
+            double currentMultiplier = currentLevelGroupBooster.getMultiplier();
+            
+            // 如果存在相同倍率的组加成，累加时间而不是替换
+            if (Math.abs(currentMultiplier - multiplier) < 0.0001) {
+                // 如果旧加成是永久的，新加成也设为永久
+                if (currentLevelGroupBooster.getEndTime() == -1 || endTime == -1) {
+                    endTime = -1;
+                } else {
+                    // 否则累加剩余时间
+                    long remainingTime = currentLevelGroupBooster.getEndTime() - System.currentTimeMillis();
+                    if (remainingTime > 0) {
+                        endTime = System.currentTimeMillis() + remainingTime + (duration * 1000);
+                    }
+                }
+                
+                // 记录日志
+                LogUtil.debug("检测到相同倍率(" + multiplier + "x)的等级组 " + levelGroup + " 加成，累加时间");
+                
+                // 修改显示的持续时间文本，以反映累加
+                if (endTime != -1) {
+                    duration = (endTime - System.currentTimeMillis()) / 1000;
+                }
+            }
+        }
+        
         // 设置等级组倍率
-        if (plugin.getBoosterManager().setLevelGroupMultiplier(levelGroup, multiplier, duration)) {
+        if (plugin.getBoosterManager().setLevelGroupMultiplier(levelGroup, multiplier, endTime)) {
             // 发送确认消息
             String durationStr = (duration == -1) ? "永久" : TimeUtils.formatDuration(duration);
             String message = plugin.getLanguageManager().getMessage(

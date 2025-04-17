@@ -26,12 +26,14 @@ public class MultiplePlayerBoosters {
      * 添加经验加成
      * 
      * @param booster 要添加的经验加成
+     * @return 是否成功添加
      */
-    public void addBooster(PlayerBooster booster) {
+    public boolean addBooster(PlayerBooster booster) {
         if (booster == null || !booster.isActive()) {
-            return;
+            return false;
         }
         boosters.add(booster);
+        return true;
     }
     
     /**

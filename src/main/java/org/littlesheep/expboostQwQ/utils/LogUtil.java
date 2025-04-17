@@ -5,7 +5,6 @@ import org.bukkit.entity.Player;
 import org.littlesheep.expboostQwQ.ExpboostQwQ;
 
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;

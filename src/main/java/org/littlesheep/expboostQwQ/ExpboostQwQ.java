@@ -138,17 +138,15 @@ public final class ExpboostQwQ extends JavaPlugin {
      */
     @Override
     public void onDisable() {
-        // 显示禁用消息
-        Bukkit.getConsoleSender().sendMessage("§e━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        Bukkit.getConsoleSender().sendMessage("§b[ExpboostQwQ] §f正在保存数据...");
-        
+        // 取消所有定时任务
         if (boosterManager != null) {
+            boosterManager.cancelTasks();
+            // 保存所有加成数据
             boosterManager.saveAll();
         }
         
-        Bukkit.getConsoleSender().sendMessage("§b[ExpboostQwQ] §f数据保存完成！");
-        Bukkit.getConsoleSender().sendMessage("§b[ExpboostQwQ] §f插件已禁用！");
-        Bukkit.getConsoleSender().sendMessage("§e━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        // 输出插件已禁用的消息
+        getLogger().info("ExpboostQwQ v" + getDescription().getVersion() + " 已禁用!");
     }
     
     /**

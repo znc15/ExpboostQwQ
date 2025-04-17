@@ -18,9 +18,22 @@ messages:
     
     # 玩家加成设置消息
     player_booster_set: "§a[ExpboostQwQ] 已为玩家 §e%player% §a设置 §e%multiplier%x §a经验加成，持续时间: §e%duration%"
+    player_booster_added: "§a[ExpboostQwQ] 已为玩家 §e%player% §a累加 §e%multiplier%x §a经验加成，持续时间: §e%duration%"
+    player_booster_replaced: "§a[ExpboostQwQ] 已替换玩家 §e%player% §a的经验加成为 §e%multiplier%x §a，持续时间: §e%duration%"
     player_booster_received: "§a[ExpboostQwQ] 你获得了 §e%multiplier%x §a经验加成，持续时间: §e%duration%"
+    player_booster_received_added: "§a[ExpboostQwQ] 你获得了额外的 §e%multiplier%x §a经验加成，持续时间: §e%duration%"
+    player_booster_received_replaced: "§a[ExpboostQwQ] 你的经验加成已被替换为 §e%multiplier%x §a，持续时间: §e%duration%"
     player_booster_removed: "§c[ExpboostQwQ] 玩家 §e%player% §c的经验加成已移除"
     player_booster_removed_self: "§c[ExpboostQwQ] 你的经验加成已被移除"
+    
+    # 多重加成相关消息
+    list_header: "§a[ExpboostQwQ] 玩家 §e%player% §a的经验加成列表 (§e%count%§a个):"
+    list_item: "§a %index%. §e%multiplier%x §a(时间: §e%time%§a, 等级组: §e%levelGroup%§a, 来源: §e%source%§a)"
+    list_remove_hint: "§a使用 §e/expbooster removebooster <玩家> <ID> §a移除特定加成"
+    no_active_boosters: "§e[ExpboostQwQ] 玩家 §6%player% §e没有活跃的经验加成"
+    booster_removed: "§a[ExpboostQwQ] 已成功移除玩家 §e%player% §a的第 §e%id% §a个经验加成"
+    your_booster_removed: "§a[ExpboostQwQ] 你的一个经验加成已被移除"
+    booster_not_found: "§c[ExpboostQwQ] 找不到玩家 §e%player% §c的第 §e%id% §c个经验加成"
     
     # 全服加成设置消息
     server_booster_set: "§a[ExpboostQwQ] 已为全服设置 §e%multiplier%x §a经验加成，持续时间: §e%duration%"
@@ -97,6 +110,7 @@ messages:
     groups_title: "§a[ExpboostQwQ] 可用的等级组列表和倍率设置:"
     no_groups_found: "§c[ExpboostQwQ] 没有找到任何等级组"
     console_specify_player: "§c[ExpboostQwQ] 控制台必须指定玩家名: /expbooster check player <玩家名>"
+    invalid_id: "§c[ExpboostQwQ] 无效的加成ID!"
     
     # 语言相关命令
     language_set: "§a[ExpboostQwQ] 你的语言已设置为: §e%language%"
@@ -120,34 +134,26 @@ messages:
 
   # 帮助信息
   help:
-    header: "§6======= §eExpboostQwQ 帮助 §6======="
-    help: "§e/expbooster help §7- §f显示此帮助信息"
-    player: "§e/expbooster player <玩家名> <倍率> <时长> [选项] §7- §f设置玩家经验加成"
-    player_options: "§7  选项: §f-levelGroup=<组名> -source=<来源> -silent"
-    server: "§e/expbooster server <倍率> <时长> [选项] §7- §f设置全服经验加成"
-    server_options: "§7  选项: §f-levelGroup=<组名> -source=<来源> -silent"
-    check_player: "§e/expbooster check player [玩家名] §7- §f检查玩家经验加成状态"
-    check_server: "§e/expbooster check server §7- §f检查全服经验加成状态"
-    check_global: "§e/expbooster check global §7- §f检查全局默认倍率"
-    check_groups: "§e/expbooster check groups §7- §f检查所有等级组倍率"
-    global: "§e/expbooster global <倍率> <时长> [选项] §7- §f设置全局默认倍率"
-    group: "§e/expbooster group <等级组> <倍率> <时长> [选项] §7- §f设置等级组倍率"
-    groups: "§e/expbooster groups §7- §f列出所有等级组及倍率"
-    reload: "§e/expbooster reload §7- §f重载插件配置"
-    language: "§e/expbooster language [语言代码] §7- §f设置或查看你的语言"
-    language_player: "§e/expbooster language player <玩家名> <语言代码> §7- §f设置玩家的语言"
-    language_server: "§e/expbooster language server <语言代码> §7- §f设置服务器默认语言"
-    language_list: "§e/expbooster language list §7- §f列出所有可用的语言"
-    check_update: "§e/expbooster checkupdate §7- §f检查插件更新"
-    footer: "§6==========================="
-    boost_calculation: "§7[配置信息] 当前加成计算方式: §e%mode% §7(可在config.yml中修改)"
-    disable_player: "§e/expbooster disable player <玩家名> §7- §f关闭玩家经验加成"
-    disable_server: "§e/expbooster disable server §7- §f关闭全服经验加成"
-    disable_group: "§e/expbooster disable group <等级组> §7- §f关闭等级组经验加成"
+    header: "§e----- ExpboostQwQ 帮助 -----"
+    player: "§a/expbooster player <玩家> <倍率> <时长> [选项] §7- 设置玩家经验加成"
+    server: "§a/expbooster server <倍率> <时长> [选项] §7- 设置全服经验加成"
+    global: "§a/expbooster global <倍率> <时长> §7- 设置全局默认倍率"
+    group: "§a/expbooster group <等级组> <倍率> <时长> §7- 设置特定等级组倍率"
+    check: "§a/expbooster check [玩家/group <等级组>] §7- 检查当前经验加成"
+    list: "§a/expbooster list [玩家] §7- 列出玩家所有经验加成"
+    removebooster: "§a/expbooster removebooster <玩家> <ID> §7- 移除特定经验加成"
+    listgroups: "§a/expbooster listgroups §7- 列出所有等级组"
+    disable: "§a/expbooster disable <player/server/group> ... §7- 禁用特定加成"
+    logs: "§a/expbooster logs [行数] §7- 查看最近日志"
+    cleanuplogs: "§a/expbooster cleanuplogs §7- 清理旧日志文件"
+    language: "§a/expbooster language [语言] §7- 设置语言"
+    reload: "§a/expbooster reload §7- 重新加载插件配置"
+    checkupdate: "§a/expbooster checkupdate §7- 检查插件更新"
+    options_info: "§e选项: §7-levelGroup=<等级组> -source=<来源> -silent -replace"
 
   # 用法提示
   usage:
-    player: "§c[ExpboostQwQ] 用法: /expbooster player <玩家名> <倍率> <时长> [选项]"
+    player: "§c[ExpboostQwQ] 用法: /expbooster player <玩家> <倍率> <时长> [选项]"
     server: "§c[ExpboostQwQ] 用法: /expbooster server <倍率> <时长> [选项]"
     check: "§c[ExpboostQwQ] 用法: /expbooster check <player/server/global/groups> [玩家名]"
     global: "§c[ExpboostQwQ] 用法: /expbooster global <倍率> <时长> [选项]"
@@ -159,6 +165,8 @@ messages:
     disable: "§c[ExpboostQwQ] 用法: /expbooster disable <player|server|group> [名称]"
     disable_player: "§c[ExpboostQwQ] 用法: /expbooster disable player <玩家名>"
     disable_group: "§c[ExpboostQwQ] 用法: /expbooster disable group <等级组>"
+    list: "§c[ExpboostQwQ] 用法: /expbooster list [玩家]"
+    removebooster: "§c[ExpboostQwQ] 用法: /expbooster removebooster <玩家> <ID>"
     
   # 日志相关消息
   logs:
