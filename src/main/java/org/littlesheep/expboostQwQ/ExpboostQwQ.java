@@ -14,6 +14,7 @@ import org.littlesheep.expboostQwQ.utils.UpdateChecker;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import java.io.File;
+import java.io.IOException;
 
 /**
  * ExpboostQwQ 插件主类
@@ -215,7 +216,33 @@ public final class ExpboostQwQ extends JavaPlugin {
      * 使用标准的saveConfig方法，同时记录日志
      */
     public void saveConfigWithComments() {
-        saveConfig();
-        LogUtil.debug("已保存配置文件");
+        try {
+            File configFile = new File(getDataFolder(), "config.yml");
+            
+            // 如果文件不存在，先创建一个默认配置
+            if (!configFile.exists()) {
+                saveDefaultConfig();
+                return;
+            }
+            
+            // 用 YamlConfiguration 重新加载文件以保留注释
+            YamlConfiguration yamlConfig = YamlConfiguration.loadConfiguration(configFile);
+            
+            // 将内存中配置的值复制到新的 YamlConfiguration 中
+            for (String key : getConfig().getKeys(true)) {
+                // 只更新值，不改变注释和结构
+                if (getConfig().isSet(key)) {
+                    yamlConfig.set(key, getConfig().get(key));
+                }
+            }
+            
+            // 保存文件
+            yamlConfig.save(configFile);
+            LogUtil.debug("已保存配置文件（保留注释）");
+        } catch (IOException e) {
+            LogUtil.error("保存配置文件时出错", e);
+            // 如果出错，回退到标准方法
+            saveConfig();
+        }
     }
 }
