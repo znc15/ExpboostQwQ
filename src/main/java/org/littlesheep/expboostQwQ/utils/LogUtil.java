@@ -41,7 +41,12 @@ public class LogUtil {
         // 创建日志文件夹
         File logsDir = new File(plugin.getDataFolder(), "logs");
         if (!logsDir.exists()) {
-            logsDir.mkdirs();
+            if (logsDir.mkdirs()) {
+                debug("创建日志目录成功");
+            } else {
+                logger.severe("无法创建日志目录");
+                return;
+            }
         }
         
         // 创建今天的日志文件
@@ -49,7 +54,18 @@ public class LogUtil {
         logFile = new File(logsDir, fileName);
         try {
             if (!logFile.exists()) {
-                logFile.createNewFile();
+                if (logFile.createNewFile()) {
+                    debug("创建日志文件成功: " + logFile.getAbsolutePath());
+                    
+                    // 写入初始内容确保文件不为空
+                    try (FileWriter writer = new FileWriter(logFile)) {
+                        writer.write(dateFormat.format(new Date()) + " [INFO] 日志系统初始化\n");
+                    }
+                } else {
+                    logger.severe("无法创建日志文件，尽管调用了createNewFile方法");
+                }
+            } else {
+                debug("使用现有日志文件: " + logFile.getAbsolutePath());
             }
         } catch (IOException e) {
             logger.severe("无法创建日志文件: " + e.getMessage());
@@ -270,11 +286,43 @@ public class LogUtil {
      * @param message 日志消息
      */
     private static synchronized void writeToFile(String message) {
-        if (logFile != null) {
-            try (FileWriter writer = new FileWriter(logFile, true)) {
-                writer.write(dateFormat.format(new Date()) + " " + message + "\n");
+        if (logFile == null) {
+            logger.severe("日志文件对象为空，无法写入日志");
+            return;
+        }
+        
+        if (!logFile.exists()) {
+            try {
+                if (!logFile.createNewFile()) {
+                    logger.severe("日志文件不存在且无法创建");
+                    return;
+                }
+                logger.info("日志文件不存在，已重新创建: " + logFile.getAbsolutePath());
             } catch (IOException e) {
-                logger.severe("写入日志文件失败: " + e.getMessage());
+                logger.severe("创建日志文件失败: " + e.getMessage());
+                return;
+            }
+        }
+        
+        if (!logFile.canWrite()) {
+            logger.severe("日志文件不可写入: " + logFile.getAbsolutePath());
+            return;
+        }
+        
+        FileWriter writer = null;
+        try {
+            writer = new FileWriter(logFile, true);
+            writer.write(dateFormat.format(new Date()) + " " + message + "\n");
+            writer.flush();
+        } catch (IOException e) {
+            logger.severe("写入日志文件失败: " + e.getMessage());
+        } finally {
+            if (writer != null) {
+                try {
+                    writer.close();
+                } catch (IOException e) {
+                    logger.severe("关闭日志文件失败: " + e.getMessage());
+                }
             }
         }
     }
@@ -360,12 +408,22 @@ public class LogUtil {
             return new String[]{"找不到指定日期的日志文件"};
         }
         
+        // 确保日志文件可读
+        if (!targetLog.canRead()) {
+            return new String[]{"无法读取日志文件：权限不足"};
+        }
+        
         lines = Math.min(lines, MAX_LOG_LINES);
         
         try {
             java.util.List<String> allLines = new java.util.ArrayList<>(
-                java.nio.file.Files.readAllLines(targetLog.toPath())
+                java.nio.file.Files.readAllLines(targetLog.toPath(), StandardCharsets.UTF_8)
             );
+            
+            // 如果文件为空
+            if (allLines.isEmpty()) {
+                return new String[]{"日志文件为空"};
+            }
             
             if (lines >= allLines.size()) {
                 return allLines.toArray(new String[0]);
@@ -375,6 +433,8 @@ public class LogUtil {
                          .toArray(new String[0]);
         } catch (IOException e) {
             return new String[]{"读取日志文件失败: " + e.getMessage()};
+        } catch (Exception e) {
+            return new String[]{"处理日志文件时发生错误: " + e.getMessage()};
         }
     }
     
